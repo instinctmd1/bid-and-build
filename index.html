@@ -521,13 +521,19 @@ function act(a){
 }
 
 /* ================= NETWORK ================= */
+const PEER_OPTS={debug:0,config:{iceServers:[
+ {urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},
+ {urls:'turn:openrelay.metered.ca:80',username:'openrelayproject',credential:'openrelayproject'},
+ {urls:'turn:openrelay.metered.ca:443',username:'openrelayproject',credential:'openrelayproject'},
+ {urls:'turns:openrelay.metered.ca:443?transport=tcp',username:'openrelayproject',credential:'openrelayproject'}],iceCandidatePoolSize:4}};
 const CODE_CH='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const newCode=()=>Array.from({length:5},()=>CODE_CH[Math.floor(Math.random()*CODE_CH.length)]).join('');
 function banner(m,ms=3500){const b=$('#banner');b.textContent=m;b.classList.remove('hidden');clearTimeout(banner.t);banner.t=setTimeout(()=>b.classList.add('hidden'),ms)}
 function hostRoom(){
   if(typeof Peer==='undefined'){$('#linkNote').textContent='Could not load the online library. Check your internet and reload.';return}
   roomCode=newCode();
-  peer=new Peer('bidbuild-'+roomCode);
+  peer=new Peer('bidbuild-'+roomCode,PEER_OPTS);
+  peer.on('disconnected',()=>{try{peer.reconnect()}catch(e){}});
   peer.on('open',()=>{
     const base=location.origin==='null'||location.protocol==='file:'?'(host this page online first)':location.origin+location.pathname;
     $('#roomLink').value=base+'#join='+roomCode;
@@ -573,9 +579,10 @@ function joinRoom(code){
   const name=$('#guestName').value.trim();if(!name){$('#joinErr').textContent='Type a name first.';return}
   $('#joinErr').textContent='Connecting…';$('#joinBtn').disabled=true;
   MODE='guest';roomCode=code;
-  peer=new Peer();
+  peer=new Peer(undefined,PEER_OPTS);
+  peer.on('disconnected',()=>{try{peer.reconnect()}catch(e){}});
   const fail=m=>{$('#joinErr').textContent=m;$('#joinBtn').disabled=false};
-  const to=setTimeout(()=>fail('Could not reach the room. Check the link and that the host tab is open.'),12000);
+  const to=setTimeout(()=>fail('Could not reach the room. Check the link, that the host tab is open, and try again.'),25000);
   peer.on('error',e=>{clearTimeout(to);fail(e.type==='peer-unavailable'?'Room not found. Check the link, and that the host still has the tab open.':'Network problem: '+e.type)});
   peer.on('open',()=>{
     hostConn=peer.connect('bidbuild-'+code,{reliable:true,serialization:'json'});
@@ -584,7 +591,8 @@ function joinRoom(code){
       if(d.t==='state'){me=d.you;S=d.s;tEnd=performance.now()+(S.tleft||0);render()}
       else if(d.t==='err'){banner(d.m,6000);fail(d.m);location.hash='';$('#joinForm').classList.remove('hidden');$('#joinWait').classList.add('hidden')}
     });
-    hostConn.on('close',()=>{banner('The host left the game.',8000)});
+    hostConn.on('close',()=>{banner('Lost connection to the host. Reload this page to rejoin.',10000)});
+    hostConn.on('error',e=>banner('Connection problem: '+(e.type||e),8000));
   });
 }
 function onState(s,you){S=s;me=you;tEnd=performance.now()+(S.tleft||0);render()}
