@@ -242,7 +242,7 @@ const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'
 const pick=a=>a[Math.floor(Math.random()*a.length)];
 const shuffle=a=>{a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
 const PTS={common:1,rare:3,legendary:6,dud:0,repair:0,junk:-3};
-const IDLE_MS=25000,BID_MS=8000,JUNK_MS=15000,REVEAL_MS=7000,BOUNTY=3,MAXP=8;
+const TURN_MS=20000,REVEAL_MS=7000,BOUNTY=3,MAXP=8;
 
 /* ================= ITEM DATA ================= */
 const MODS={
@@ -333,8 +333,8 @@ let peer=null,hostConn=null,roomCode=null,pid=null,lobby=[],connByPid={};
 let selType='jet',selRounds=12,selCash=20,customItems=[],muted=false;
 try{pid=localStorage.getItem('bb_pid')}catch(e){}
 if(!pid){pid='p'+Math.random().toString(36).slice(2,10);try{localStorage.setItem('bb_pid',pid)}catch(e){}}
-// tabs on the same browser would share a pid; use a per-tab id instead
-pid=pid+'-'+Math.random().toString(36).slice(2,6);
+// per-tab id (survives refresh in the same tab, differs between tabs)
+try{let t=sessionStorage.getItem('bb_tab');if(!t){t=Math.random().toString(36).slice(2,6);sessionStorage.setItem('bb_tab',t)}pid=pid+'-'+t}catch(e){pid=pid+'-'+Math.random().toString(36).slice(2,6)}
 
 /* ================= SOUND ================= */
 let AC;
@@ -419,8 +419,8 @@ function newItem(){
   S.item=drawItem();S.itemSeq++;S.bid=0;S.bidder=null;S.phase='auction';
   if(S.players.every(p=>p.cash<1)){endGame();return}
   S.players.forEach(p=>{p.passed=!p.online||(!S.item.junk&&p.cash<1)});
-  if(S.cfg.mode==='physical')S.turn=firstFrom(S.starter);
-  else{S.dur=S.item.junk?JUNK_MS:IDLE_MS;S.deadline=Date.now()+S.dur}
+  S.turn=firstFrom(S.starter);
+  if(S.cfg.mode==='online'){S.dur=TURN_MS;S.deadline=Date.now()+TURN_MS}
   if(!checkEnd())publish();
 }
 function checkEnd(){
@@ -436,26 +436,28 @@ function handle(i,a){
   const phys=S.cfg.mode==='physical';
   if(a.t==='next'){if(S.phase==='reveal'&&(phys||i===0))nextRound();return}
   if(S.phase!=='auction')return;
-  if(phys&&S.turn!==i)return;
+  if(S.turn!==i)return;
   const it=S.item;
   if(a.t==='bid'&&!it.junk){
     const add=Math.floor(+a.add);if(!(add>=1)||add>1000)return;
     if(S.bidder===i)return;const nb=S.bid+add;if(nb>p.cash)return;
     S.bid=nb;S.bidder=i;p.passed=false;
-    if(phys){S.players.forEach((q,k)=>{if(k!==i&&q.cash<=nb)q.passed=true});S.turn=nextTurn(i)}
-    else{S.dur=BID_MS;S.deadline=Date.now()+BID_MS}
+    S.players.forEach((q,k)=>{if(k!==i&&q.cash<=nb)q.passed=true});S.turn=nextTurn(i);
+    turnTimer();
     if(!checkEnd())publish();
   }else if(a.t==='take'&&it.junk){takeJunk(i,false)}
   else if(a.t==='pass'){
     if(S.bidder===i&&S.bid>0)return;
     p.passed=true;
-    if(phys&&S.turn===i)S.turn=nextTurn(i);
+    if(S.turn===i)S.turn=nextTurn(i);
+    turnTimer();
     if(!checkEnd())publish();
   }else if(a.t==='spin'){
     if(S.bid>0||p.spins<1)return;
     p.spins--;respin(false);
   }
 }
+function turnTimer(){if(S.cfg.mode==='online'){S.dur=TURN_MS;S.deadline=Date.now()+TURN_MS}}
 function respin(auto){
   if(S.item.tier==='repair')H.repSkip=S.round;
   S.phase='spinning';S.spinAuto=auto;S.deadline=0;
@@ -509,7 +511,7 @@ function endGame(){
 function tick(){
   if(!S||!H||S.phase==='end')return;
   const now=Date.now();
-  if(S.phase==='auction'&&S.deadline&&now>=S.deadline){S.deadline=0;if(S.bid>0&&!S.item.junk)win(S.bidder);else nobodyWants()}
+  if(S.phase==='auction'&&S.deadline&&now>=S.deadline){S.deadline=now+TURN_MS;const t=S.turn;if(t>=0&&S.players[t])handle(t,{t:'pass'});else if(!checkEnd())publish()}
   else if(S.phase==='reveal'&&S.deadline&&now>=S.deadline){S.deadline=0;nextRound()}
   if(++H.n%8===0&&S&&S.phase!=='end')publish();
 }
@@ -557,8 +559,16 @@ function onHostData(c,d){
   if(d.t==='hello'){
     if(H&&S&&S.phase!=='lobby'){
       const k=H.pids.indexOf(d.pid);
-      if(k<0){c.send({t:'err',m:'This game has already started.'});return}
-      connByPid[d.pid]=c;c.pid=d.pid;S.players[k].online=true;publish();return;
+      connByPid[d.pid]=c;c.pid=d.pid;
+      if(k<0){
+        if(S.players.length>=MAXP){c.send({t:'err',m:'The room is full (8 players).'});return}
+        const T=TYPES[S.build],fl=pick(T.flaws);
+        S.players.push({name:String(d.name||'Player').slice(0,14),cash:S.cfg.cash,spins:2,items:[],flaw:{...fl,fixed:false},passed:true,online:true});
+        H.pids.push(d.pid);
+        if(S.round+2<=S.max)H.repairRounds.push(S.round+2);
+        banner(S.players[S.players.length-1].name+' joined!');
+      }else S.players[k].online=true;
+      publish();return;
     }
     let l=lobby.find(x=>x.pid===d.pid);
     if(!l){if(lobby.length>=MAXP){c.send({t:'err',m:'The room is full (8 players).'});return}
@@ -664,7 +674,7 @@ function renderTop(){
 function renderPlayers(){
   const A=S.phase==='auction'?ap():-1;
   $('#plist').innerHTML=S.players.map((p,i)=>{
-    const turn=S.cfg.mode==='physical'&&S.phase==='auction'&&S.turn===i;
+    const turn=S.phase==='auction'&&S.turn===i;
     const lead=S.phase==='auction'&&S.bidder===i;
     const vw=viewIdx()===i;
     return `<div class="pc ${turn?'turn':''} ${p.passed&&S.phase==='auction'?'out':''} ${vw?'view':''} ${prevCash[i]!==undefined&&prevCash[i]!==p.cash?'pop':''}" data-i="${i}">
@@ -719,22 +729,24 @@ function renderControls(){
   const c=$('#ctl');if(!c)return;
   const i=ap(),p=S.players[i];if(!p){c.innerHTML='';return}
   const it=S.item,lead=S.bidder!==null?S.players[S.bidder]:null,isLead=S.bidder===i;
-  const key=[S.bid,S.bidder,i,p.cash,p.spins,S.players.map(q=>q.passed?1:0).join('')].join('|');
+  const myTurn=S.turn===i,dis=myTurn?'':'disabled';
+  const key=[S.bid,S.bidder,i,S.turn,p.cash,p.spins,S.players.length,S.players.map(q=>q.passed?1:0).join('')].join('|');
   if(key===lastCtl)return;lastCtl=key;
   const phys=S.cfg.mode==='physical';
   const who=phys?`<p class="turn" style="margin:10px 0"><strong>${esc(p.name)}</strong>, your turn · you have $${p.cash}</p>`
-    :`<p class="turn" style="margin:10px 0">You have <strong>$${p.cash}</strong>${isLead?' · you are leading 🔥':p.passed?' · you passed (bid to jump back in)':''}</p>`;
+    :myTurn?`<p class="turn" style="margin:10px 0"><strong>Your turn!</strong> · you have $${p.cash}</p>`
+    :`<p class="turn" style="margin:10px 0">Waiting for <strong>${S.turn>=0?esc(S.players[S.turn].name):'…'}</strong> · you have $${p.cash}${isLead?' · you are leading 🔥':p.passed?' · you passed':''}</p>`;
   const passedList=S.players.filter(q=>q.passed&&q.online).map(q=>esc(q.name)).join(', ');
   const hint=passedList?`<p class="hint" style="margin:10px auto 0">Passed: ${passedList}</p>`:'';
   if(it.junk){
-    c.innerHTML=`${who}<div class="btns"><button class="primary" id="takeBtn">Take it, +$${BOUNTY} 💰</button><button id="passBtn">${phys?'Pass':'Not me'}</button><button id="spinBtn" ${p.spins>0?'':'disabled'}>🌀 Spin it away (${p.spins})</button></div>${hint}`;
+    c.innerHTML=`${who}<div class="btns"><button class="primary" id="takeBtn" ${dis}>Take it, +$${BOUNTY} 💰</button><button id="passBtn" ${dis}>${phys?'Pass':'Not me'}</button><button id="spinBtn" ${myTurn&&p.spins>0?'':'disabled'}>🌀 Spin it away (${p.spins})</button></div>${hint}`;
     $('#takeBtn').onclick=()=>act({t:'take'});
   }else{
-    const b=n=>`<button class="primary" data-add="${n}" ${(isLead||S.bid+n>p.cash)?'disabled':''}>+$${n} → $${S.bid+n}</button>`;
+    const b=n=>`<button class="primary" data-add="${n}" ${(!myTurn||isLead||S.bid+n>p.cash)?'disabled':''}>+$${n} → $${S.bid+n}</button>`;
     c.innerHTML=`<div class="bidline"><div><small>Current bid</small><b id="bidv">$${S.bid}</b></div><div class="lead"><small>Leading</small><b>${lead?esc(lead.name):'—'}</b></div></div>${who}
-     <div class="btns">${b(1)}${b(2)}${b(5)}<button class="primary" id="allin" ${(isLead||p.cash<=S.bid)?'disabled':''}>All in $${p.cash}</button></div>
-     <div class="btns" style="margin-top:10px"><button id="passBtn" ${(isLead&&S.bid>0)?'disabled':''}>${phys?'Pass':'Not for me'}</button><button id="spinBtn" ${S.bid===0&&p.spins>0?'':'disabled'}>🌀 Spin for a new item (${p.spins})</button></div>${hint}
-     <p class="hint" style="margin:10px auto 0">${S.bid===0?'Nobody has bid. Open the bidding, pass, or spin. If everybody passes it re-spins free.':phys?'Raise it, or pass and let the others fight.':'Raise it before the timer runs out!'}</p>`;
+     <div class="btns">${b(1)}${b(2)}${b(5)}<button class="primary" id="allin" ${(!myTurn||isLead||p.cash<=S.bid)?'disabled':''}>All in $${p.cash}</button></div>
+     <div class="btns" style="margin-top:10px"><button id="passBtn" ${(!myTurn||(isLead&&S.bid>0))?'disabled':''}>${phys?'Pass':'Not for me'}</button><button id="spinBtn" ${myTurn&&S.bid===0&&p.spins>0?'':'disabled'}>🌀 Spin for a new item (${p.spins})</button></div>${hint}
+     <p class="hint" style="margin:10px auto 0">${S.bid===0?'Nobody has bid. Open the bidding, pass, or spin. If everybody passes it re-spins free.':'Raise it, or pass and let the others fight. Turns go round the table.'}</p>`;
     $$('#ctl [data-add]').forEach(x=>x.onclick=()=>act({t:'bid',add:+x.dataset.add}));
     $('#allin').onclick=()=>act({t:'bid',add:p.cash-S.bid});
     if(S.bid!==prevBid){$('#bidv').classList.add('pop');sfx.bid()}
@@ -765,7 +777,7 @@ function updateReveal(){const r=$('#rsec');if(r&&S.cfg.mode==='online')r.textCon
 function frame(){
   if(S&&S.phase==='auction'&&S.cfg.mode==='online'){
     const left=Math.max(0,tEnd-performance.now()),f=$('#tfill');
-    if(f){f.style.width=Math.min(100,left/(S.dur||IDLE_MS)*100)+'%';$('#tbar').classList.toggle('hot',left<3000);$('#tsec').textContent=Math.ceil(left/1000)+'s'}
+    if(f){f.style.width=Math.min(100,left/(S.dur||IDLE_MS)*100)+'%';$('#tbar').classList.toggle('hot',left<3000);$('#tsec').textContent=(S.turn>=0&&S.players[S.turn]?S.players[S.turn].name+"'s turn · ":'')+Math.ceil(left/1000)+'s'}
   }
   if(S&&S.phase==='reveal')updateReveal();
   requestAnimationFrame(frame);
