@@ -1,0 +1,809 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bid & Build</title>
+<style>
+:root{--navy:#0a1224;--cream:#f6f0e4;--coral:#ff6b4a;--glass:rgba(255,255,255,.07);--line:rgba(255,255,255,.15);--muted:rgba(246,240,228,.62);--spring:cubic-bezier(.34,1.56,.64,1)}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",system-ui,sans-serif;background:var(--navy);color:var(--cream);overflow-x:hidden}
+.bg{position:fixed;inset:0;z-index:-1;overflow:hidden;background:linear-gradient(160deg,#0a1224,#101c38 60%,#0a1224)}
+.bg i{position:absolute;border-radius:50%;filter:blur(90px);opacity:.55;animation:drift 18s ease-in-out infinite alternate}
+.bg i:nth-child(1){width:520px;height:520px;background:#24407f;left:-120px;top:-100px}
+.bg i:nth-child(2){width:460px;height:460px;background:#f6f0e4;opacity:.12;right:-100px;top:20%;animation-delay:-6s}
+.bg i:nth-child(3){width:340px;height:340px;background:#ff6b4a;opacity:.16;left:35%;bottom:-140px;animation-delay:-11s}
+@keyframes drift{to{transform:translate(60px,40px) scale(1.15)}}
+.glass{background:var(--glass);border:1px solid var(--line);border-radius:28px;backdrop-filter:blur(26px) saturate(140%);-webkit-backdrop-filter:blur(26px) saturate(140%);box-shadow:0 20px 50px rgba(0,0,0,.28)}
+button{font:inherit;color:inherit;cursor:pointer;border:1px solid var(--line);background:rgba(255,255,255,.09);padding:12px 20px;border-radius:999px;transition:transform .3s var(--spring),background .2s,opacity .2s}
+button:hover:not(:disabled){transform:translateY(-3px);background:rgba(255,255,255,.16)}
+button:active:not(:disabled){transform:scale(.96)}
+button:disabled{opacity:.35;cursor:not-allowed}
+button.primary{background:var(--coral);color:var(--navy);border-color:transparent;font-weight:700}
+button.primary:hover:not(:disabled){background:#ff8366}
+.hidden{display:none!important}
+small,.muted{color:var(--muted)}
+@keyframes rise{from{opacity:0;transform:translateY(24px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.25)}100%{transform:scale(1)}}
+.rise{animation:rise .6s var(--spring) both}
+input,select,textarea{font:inherit;color:var(--cream);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:16px;padding:12px 16px;width:100%;outline:none}
+input:focus,textarea:focus,select:focus{border-color:var(--cream)}
+select option{color:#000}
+textarea{resize:vertical;min-height:70px}
+
+/* home / setup */
+.page{max-width:900px;margin:0 auto;padding:40px 20px 60px}
+.page h1{font-size:clamp(40px,7vw,76px);letter-spacing:-.03em;line-height:1}
+.page h1 em{font-style:normal;color:var(--coral)}
+.tag{margin:12px 0 28px;font-size:18px;color:var(--muted)}
+.homegrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.bigmode{padding:34px 24px;border-radius:28px;text-align:left;font-size:20px;font-weight:700;line-height:1.3}
+.bigmode span{display:block;font-size:54px;margin-bottom:10px}
+.bigmode small{display:block;font-weight:400;font-size:15px;margin-top:6px}
+.card{padding:26px;margin-bottom:18px}
+.card h3{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:14px;font-weight:600}
+.modes{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.mode{padding:18px 8px;border-radius:22px;text-align:center;font-size:16px}
+.mode span{display:block;font-size:36px;margin-bottom:4px}
+.mode.on,.seg button.on{background:var(--cream);color:var(--navy);border-color:transparent}
+.seg{display:flex;gap:8px;flex-wrap:wrap}
+.linkrow{display:flex;gap:10px}
+.prow{display:flex;gap:8px;margin-bottom:8px}
+.prow button{padding:8px 14px}
+.customrow{display:grid;grid-template-columns:1.2fr 1fr 2fr auto;gap:8px;margin-top:10px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{padding:5px 12px;border-radius:999px;background:rgba(255,255,255,.1);border:1px solid var(--line);font-size:14px}
+.chip.new{animation:rise .5s var(--spring)}
+.chip.t-rare{background:rgba(246,240,228,.22)}
+.chip.t-legendary{background:linear-gradient(110deg,#f6f0e4,#fff,#f6f0e4);color:var(--navy);font-weight:600;background-size:200%;animation:shine 3s linear infinite}
+.chip.t-dud{opacity:.6;border-style:dashed}
+.chip.t-repair{border-color:var(--coral)}
+.chip.t-junk{background:rgba(0,0,0,.4);border:1px dashed var(--coral)}
+.chip.on{background:rgba(246,240,228,.2);border-color:var(--cream)}
+.chip.off{opacity:.45}
+@keyframes shine{to{background-position:200% 0}}
+#startBtn,#joinBtn{width:100%;padding:18px;font-size:20px;margin-top:6px}
+.err{color:var(--coral);margin-top:10px;min-height:20px}
+
+/* game */
+#game{min-height:100vh;display:flex;flex-direction:column;padding:16px 22px 20px;gap:14px;max-width:1600px;margin:0 auto}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.dots{display:flex;gap:6px;flex-wrap:wrap}
+.dots b{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.2);transition:.4s var(--spring)}
+.dots b.done{background:var(--cream)}
+.dots b.cur{background:var(--coral);transform:scale(1.5)}
+.top .l{display:flex;align-items:center;gap:16px;font-size:18px;font-weight:600;flex-wrap:wrap}
+.top button{padding:8px 14px;font-size:14px}
+.arena{flex:1;display:grid;grid-template-columns:minmax(210px,.8fr) minmax(380px,1.6fr) minmax(240px,1fr);gap:18px;align-items:start}
+.plist{padding:14px;display:flex;flex-direction:column;gap:8px;max-height:calc(100vh - 110px);overflow:auto}
+.pc{padding:10px 12px;border-radius:18px;border:1px solid var(--line);background:rgba(255,255,255,.05);cursor:pointer;display:grid;grid-template-columns:auto 1fr auto;gap:2px 10px;align-items:center;transition:transform .3s var(--spring),border-color .3s,box-shadow .3s,opacity .3s}
+.pc:hover{transform:translateX(3px)}
+.pc.turn{border-color:var(--coral);box-shadow:0 0 0 2px rgba(255,107,74,.45),0 0 30px rgba(255,107,74,.2)}
+.pc.out{opacity:.5}
+.pc.view{background:rgba(246,240,228,.14)}
+.pc .av{grid-row:span 2;width:36px;height:36px;border-radius:50%;background:var(--cream);color:var(--navy);display:grid;place-items:center;font-weight:800}
+.pc .nm{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pc .cs{font-weight:800;font-size:20px}
+.pc.pop .cs{animation:pop .5s var(--spring)}
+.pc small{grid-column:2/4;font-size:12px}
+.lead-dot{color:var(--coral);font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:700}
+.stage{padding:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;min-height:520px}
+.item{display:flex;flex-direction:column;align-items:center;gap:6px}
+.item .em{font-size:100px;line-height:1.1;filter:drop-shadow(0 12px 22px rgba(0,0,0,.4));animation:float 3.2s ease-in-out infinite}
+@keyframes float{50%{transform:translateY(-8px)}}
+.item.spinning .em{animation:spin .5s linear infinite}
+@keyframes spin{from{transform:rotateY(0)}to{transform:rotateY(360deg)}}
+.item.shake .em{animation:shake .5s ease-in-out infinite}
+@keyframes shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-14deg) scale(1.1)}75%{transform:rotate(14deg) scale(1.1)}}
+.item h2{font-size:30px;letter-spacing:-.02em}
+.badge{display:inline-block;padding:4px 14px;border-radius:999px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;border:1px solid var(--line)}
+.badge.rare{background:rgba(246,240,228,.25)}
+.badge.legendary{background:var(--cream);color:var(--navy);box-shadow:0 0 24px rgba(246,240,228,.6)}
+.badge.repair{border-color:var(--coral);color:var(--coral)}
+.badge.junk{background:rgba(0,0,0,.4);border:1px dashed var(--coral);color:var(--coral)}
+.badge.dud{opacity:.7}
+.bidline{display:flex;gap:40px;justify-content:center}
+.bidline b{display:block;font-size:46px;letter-spacing:-.03em}
+.bidline .lead b{font-size:24px;padding-top:14px}
+#bidv.pop{animation:pop .5s var(--spring)}
+.turn{font-size:18px}
+.turn strong{color:var(--coral)}
+.btns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.hint{font-size:14px;color:var(--muted);max-width:440px}
+.sold{font-size:40px;font-weight:800;letter-spacing:-.03em;animation:rise .6s var(--spring)}
+.sold span{color:var(--coral)}
+.tbarwrap{width:min(420px,90%)}
+.tbar{height:8px;border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden}
+.tbar i{display:block;height:100%;width:100%;background:var(--cream);border-radius:99px}
+.tbar.hot i{background:var(--coral)}
+.build{padding:22px;display:flex;flex-direction:column;gap:12px}
+.build .pname{display:flex;align-items:center;gap:10px;font-size:22px;font-weight:700}
+.build .cash{font-size:54px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.flaw{padding:10px 14px;border-radius:16px;font-size:14px;background:rgba(0,0,0,.25);border:1px dashed var(--line)}
+.flaw.ok{border-style:solid;border-color:var(--cream)}
+.banner{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:var(--coral);color:var(--navy);padding:10px 20px;border-radius:99px;font-weight:700;z-index:9}
+
+/* end */
+#end{max-width:1300px;margin:0 auto;padding:30px 20px 60px}
+#end h1{font-size:clamp(34px,5vw,56px);letter-spacing:-.03em;margin-bottom:6px}
+.endgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:18px;margin-top:20px}
+.ecard{padding:26px;display:flex;flex-direction:column;gap:14px}
+.ecard.win{border-color:var(--cream);box-shadow:0 0 50px rgba(246,240,228,.2)}
+.ecard h2{font-size:28px}
+pre{white-space:pre-wrap;font:14px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:18px;padding:16px;max-height:300px;overflow:auto}
+.endbtns{display:flex;gap:10px;flex-wrap:wrap}
+a.btn{display:inline-block;text-decoration:none;color:inherit;border:1px solid var(--line);padding:12px 20px;border-radius:999px;background:rgba(255,255,255,.09)}
+@media (max-width:1000px){.arena{grid-template-columns:1fr}.plist{max-height:none;flex-direction:row;overflow:auto}.pc{min-width:190px}.homegrid,.customrow{grid-template-columns:1fr}.modes{grid-template-columns:repeat(2,1fr)}.stage{min-height:0}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+</head>
+<body>
+<div class="bg"><i></i><i></i><i></i></div>
+<div id="banner" class="banner hidden"></div>
+
+<!-- HOME -->
+<main id="home" class="page">
+  <h1 class="rise">Bid <em>&amp;</em> Build</h1>
+  <p class="tag rise" style="animation-delay:.1s">Win mystery items at auction, fix your flaw, dodge the junk, then get an image prompt for your build.</p>
+  <div class="homegrid">
+    <button class="bigmode glass rise" id="goOnline" style="animation-delay:.15s"><span>🌐</span>Play online<small>Everyone joins from their own device with a link. Live bidding while you chat on a call. Up to 8 players.</small></button>
+    <button class="bigmode glass rise" id="goPhys" style="animation-delay:.2s"><span>🪑</span>Play on this laptop<small>Everyone is in the same room. Pass turns around the table. Up to 8 players.</small></button>
+  </div>
+  <p class="tag" id="poolCount" style="margin-top:28px;font-size:15px"></p>
+</main>
+
+<!-- SETUP (host or physical) -->
+<main id="setup" class="page hidden">
+  <button id="backHome" style="margin-bottom:18px">← Back</button>
+  <h1 id="setupTitle" style="font-size:44px;margin-bottom:18px"></h1>
+
+  <section class="card glass" id="roomBox">
+    <h3>Your name</h3>
+    <input id="hostName" value="Medhansh" maxlength="14">
+    <h3 style="margin-top:20px">Send this link to your friends</h3>
+    <div class="linkrow"><input id="roomLink" readonly><button class="primary" id="copyLink">Copy link</button></div>
+    <p class="hint" id="linkNote" style="margin-top:8px"></p>
+    <h3 style="margin-top:20px">In the room now</h3>
+    <div class="chips" id="lobbyList"></div>
+  </section>
+
+  <section class="card glass" id="physBox">
+    <h3>Players on this laptop</h3>
+    <div id="physList"></div>
+    <button id="addP">+ Add player</button>
+  </section>
+
+  <section class="card glass">
+    <h3>What are you building?</h3>
+    <div class="modes" id="typeGrid"></div>
+  </section>
+
+  <section class="card glass">
+    <h3>How many items</h3>
+    <div class="seg" id="roundSeg"><button data-v="8">8</button><button data-v="12" class="on">12</button><button data-v="16">16</button><button data-v="20">20</button></div>
+    <h3 style="margin-top:20px">Starting cash</h3>
+    <div class="seg" id="cashSeg"><button data-v="10">$10</button><button data-v="20" class="on">$20</button><button data-v="50">$50</button></div>
+  </section>
+
+  <section class="card glass">
+    <h3>Twist (optional) – idea from a reel</h3>
+    <textarea id="twist" placeholder="e.g. everything is Minecraft style / set in space / made of candy"></textarea>
+    <h3 style="margin-top:20px">Add your own item to the deck (optional)</h3>
+    <div class="customrow">
+      <input id="cName" placeholder="Name e.g. Lava lamp">
+      <select id="cTier"><option value="common">Common</option><option value="rare">Rare</option><option value="legendary">Legendary</option></select>
+      <input id="cPhrase" placeholder="What it looks like (for the image)">
+      <button id="cAdd">Add</button>
+    </div>
+    <div class="chips" id="cList" style="margin-top:12px"></div>
+  </section>
+
+  <button class="primary" id="startBtn">Start the auction →</button>
+  <p class="err" id="setupErr"></p>
+</main>
+
+<!-- JOIN (guest) -->
+<main id="join" class="page hidden">
+  <h1 class="rise">Join the game</h1>
+  <p class="tag" id="joinInfo">Pick a name and jump in.</p>
+  <section class="card glass" id="joinForm">
+    <h3>Your name</h3>
+    <input id="guestName" maxlength="14" placeholder="Your name">
+    <button class="primary" id="joinBtn">Join →</button>
+    <p class="err" id="joinErr"></p>
+  </section>
+  <section class="card glass hidden" id="joinWait">
+    <h3>In the room</h3>
+    <div class="chips" id="guestLobby"></div>
+    <p class="hint" style="margin-top:14px">Waiting for the host to start the game…</p>
+  </section>
+</main>
+
+<!-- GAME -->
+<main id="game" class="hidden">
+  <div class="top">
+    <div class="l"><span id="roundTxt"></span><div class="dots" id="dots"></div></div>
+    <div><button id="muteBtn">🔊</button> <button id="quitBtn">Leave</button></div>
+  </div>
+  <div class="arena">
+    <section class="plist glass" id="plist"></section>
+    <section class="stage glass" id="stage"></section>
+    <section class="build glass" id="build"></section>
+  </div>
+</main>
+
+<main id="end" class="hidden"></main>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const shuffle=a=>{a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const PTS={common:1,rare:3,legendary:6,dud:0,repair:0,junk:-3};
+const IDLE_MS=25000,BID_MS=8000,JUNK_MS=15000,REVEAL_MS=7000,BOUNTY=3,MAXP=8;
+
+/* ================= ITEM DATA ================= */
+const MODS={
+ common:['Cozy|cozy','Sleek|sleek','Minimalist|minimalist','Rustic|rustic','Spacious|spacious','Modern|modern','Vintage|vintage','Sunny|sunny','Tidy|tidy','Comfy|comfy','Scandinavian|Scandinavian-style','Bright|bright','Classic|classic','Wooden|wooden','Pastel|pastel-coloured','Charming|charming'],
+ rare:['Gold-Plated|gold-plated','Marble|marble','Neon-Lit|neon-lit','Crystal|crystal','Hand-Carved|hand-carved','Smart-Controlled|smart-controlled','Waterfall-Fed|waterfall-fed','Glass-Floored|glass-floored','Retro-Arcade|retro-arcade-style','Penthouse-Grade|penthouse-grade','Fire-Lit|fire-lit','Mirror-Finished|mirror-finished','Jungle-Themed|jungle-themed','Japanese-Zen|Japanese zen-style','Pink-Velvet|pink velvet','Racing-Striped|racing-striped','Holographic|holographic','Copper-Glow|glowing copper','Pearl-Inlaid|pearl-inlaid'],
+ legendary:['Diamond-Studded|diamond-studded','Dragon-Scale|dragon-scale','Alien-Tech|alien-technology','Antigravity|antigravity-floating','Meteorite|meteorite-forged','Solid-Gold|solid gold','Laser-Guarded|laser-guarded','Cloud-Made|cloud-made','Volcano-Powered|volcano-powered','Rainbow-Glowing|rainbow-glowing','Time-Travelling|time-travelling','Royal Emerald|royal emerald','Lightning-Charged|lightning-charged','Moonlit Silver|moonlit silver','Phoenix-Fire|phoenix-fire','Starlit Obsidian|starlit obsidian','Ancient Golden|ancient golden']
+};
+const BAD=['Moldy|moldy','Leaking|leaking','Rusty|rusty','Smelly|smelly','Rat-Infested|rat-infested','Soggy|soggy','Burnt|burnt','Sagging|sagging','Cracked|badly cracked','Sticky|sticky','Flooded|flooded','Fly-Covered|fly-covered','Broken|broken','Slimy|slimy','Dusty|dust-covered and cobwebbed'];
+const N=a=>a.map(s=>{const[e,n,p]=s.split('|');return{e,n,p}});
+
+const TYPES={
+jet:{label:'Private Jet',emoji:'✈️',thing:'private jet',base:'a small, plain white private jet with a bare, empty cabin',shot:'Show the outside of the jet in flight with a cutaway so the interior is visible too.',
+ nouns:N(['🛋️|Lounge Sofa|lounge sofa','🪑|Captain Chair|captain chair','🍸|Cocktail Bar|cocktail bar','📺|Cinema Screen|cinema screen','🛏️|Bedroom|bedroom','🚿|Shower|shower','🎮|Gaming Corner|gaming corner','🍳|Galley Kitchen|galley kitchen','💼|Office Desk|office desk','🍽️|Dining Table|dining table','🛁|Spa Tub|spa tub','🏋️|Gym Corner|gym corner','🎹|Piano|piano','🐠|Aquarium|aquarium','🔥|Fireplace|fireplace','🍷|Wine Rack|wine rack','📚|Library Wall|library wall','✨|Ceiling|ceiling','🧶|Carpet|carpet','🪟|Window|window','🪽|Wing Tip|wing tip','⚙️|Engine|engine','🛩️|Tail Fin|tail fin','🛫|Nose Cone|nose cone','🛞|Landing Gear|landing gear','🎨|Paint Job|paint job','🎛️|Cockpit Dashboard|cockpit dashboard','🪜|Boarding Stairs|boarding staircase','💡|Cabin Lighting|cabin lighting','🔊|Speaker System|speaker system','🧊|Mini Fridge|mini fridge','🚻|Bathroom|bathroom','🐱|Cat Cafe|cat-cafe corner','💃|Dance Floor|dance floor','🎤|Karaoke Booth|karaoke booth','🕹️|Arcade Machine|arcade machine','🎱|Pool Table|pool table','♨️|Hot Tub|hot tub','🍣|Sushi Counter|sushi counter','🍕|Pizza Oven|pizza oven','☕|Coffee Machine|coffee machine','🧳|Luggage Hold|luggage hold','📡|Antenna|antenna']),
+ specials:[['🏊','Mini Pool','rare','a small glass-walled swimming pool inside the cabin'],['🚗','Supercar Garage','rare','a rear cargo garage holding a supercar'],['🏀','Mini Basketball Court','rare','a mini indoor basketball court'],['🚀','Twin Rocket Boosters','rare','twin rocket boosters strapped under the wings'],['🦚','Peacock Tail Mural','rare','a giant hand-painted peacock mural on the tail fin'],['🏰','Throne Room','legendary','a royal throne room with a golden throne'],['🌈','Rainbow Exhaust Trail','legendary','a shimmering rainbow exhaust trail behind it'],['🛸','UFO Engine','legendary','a glowing alien UFO engine ring'],['🪐','Spaceship Mode','legendary','retractable space-capable wings and a glowing cockpit dome']],
+ duds:[['🪑','One Sad Plastic Chair','one lonely plastic garden chair bolted to the floor'],['🩹','Duct-Tape Wing Patch','a big strip of duct tape on the wing'],['🦆','Rubber Duck Co-pilot','a rubber duck sitting in the co-pilot seat'],['🥔','A Potato','a potato sitting in the cockpit'],['🎈','Balloon Add-on','a single balloon tied to the tail']],
+ junk:[['🚽','Leaking Toilet Drainage','a leaking toilet drain dripping brown sludge down the fuselage'],['🪰','Swarm of Flies','a swarm of flies circling the jet'],['🧦','Damp Smelly Sock Carpet','a cabin carpet made of damp smelly socks'],['🐀','Rats in the Cabin','rats running around the cabin'],['🐦','Pigeon Nest in Engine','a giant pigeon nest and droppings all over an engine'],['🛢️','Greasy Oil Streaks','thick greasy black oil streaks across the body'],['🤢','Mystery Stained Seats','seats with huge mystery stains'],['🪳','Cockroach Galley','cockroaches crawling around the galley']],
+ flaws:[{emoji:'🪟',name:'Cracked windshield',bad:'a badly cracked windshield',fixName:'New Windshield',fixPhrase:'a flawless brand-new windshield'},{emoji:'💨',name:'Smoking engine',bad:'a smoking left engine',fixName:'Engine Overhaul',fixPhrase:'two perfectly running engines'},{emoji:'🛞',name:'Flat tire',bad:'a flat landing-gear tire',fixName:'New Landing Gear',fixPhrase:'shiny new landing gear'},{emoji:'🎨',name:'Rusty peeling paint',bad:'rusty peeling paint',fixName:'Fresh Paint Job',fixPhrase:'fresh gleaming paint'},{emoji:'💧',name:'Leaking roof',bad:'a leaking cabin roof with a bucket catching drips',fixName:'Roof Seal Kit',fixPhrase:'a sealed, dry cabin'},{emoji:'🚪',name:'Taped-shut door',bad:'a cabin door held shut with duct tape',fixName:'Proper Cabin Door',fixPhrase:'a sleek proper cabin door'}]},
+house:{label:'House',emoji:'🏠',thing:'house',base:'a small, plain, ordinary two-storey house with empty rooms',shot:'Show the house from outside with a few cutaway windows revealing the interior.',
+ nouns:N(['🛋️|Living Room|living room','🍳|Kitchen|kitchen','🛁|Bathroom|bathroom','🛏️|Bedroom|bedroom','🪜|Staircase|staircase','🚪|Front Door|front door','🌳|Garden|garden','🚗|Garage|garage','🏊|Swimming Pool|swimming pool','🏙️|Roof Terrace|roof terrace','🌇|Balcony|balcony','🎬|Home Cinema|home cinema','🎮|Gaming Room|gaming room','📚|Library|library','🏋️|Gym|gym','🧖|Sauna|sauna','👗|Wardrobe|walk-in wardrobe','🍷|Wine Cellar|wine cellar','🔥|Fireplace|fireplace','🪟|Window|window','🛣️|Driveway|driveway','🚧|Gate|front gate','🏠|Roof|roof','💼|Study|study','🎧|Music Studio|music studio','🥫|Pantry|pantry','🧺|Laundry Room|laundry room','🧸|Playroom|playroom','🌲|Treehouse|treehouse','♨️|Hot Tub|hot tub','🏀|Basketball Court|basketball court','⛳|Mini Golf Course|mini golf course','🐟|Koi Pond|koi pond','🍖|BBQ Area|BBQ area','💡|Lighting|lighting','🪑|Dining Table|dining table','🕯️|Chandelier|chandelier','📬|Mailbox|mailbox','🔔|Doorbell|doorbell','🛗|Elevator|elevator','🖼️|Art Wall|art wall','🐠|Aquarium|aquarium','🛝|Waterslide|waterslide','🌅|Skylight|skylight','🧱|Fence|fence']),
+ specials:[['🚁','Rooftop Helipad','rare','a rooftop helipad with a helicopter'],['🏎️','Supercar Garage','rare','a glass garage showing off supercars'],['🛝','Waterslide From Bedroom','rare','a giant waterslide from a bedroom window into the pool'],['🎳','Bowling Alley','rare','a private bowling alley'],['🏰','Castle Towers','legendary','huge castle towers with flags'],['🌋','Volcano Lair','legendary','a secret volcano lair behind the house'],['☁️','Floating On Clouds','legendary','the whole house floating on clouds'],['🌊','Underwater Glass Wing','legendary','an underwater glass wing with sharks swimming by'],['🦖','Pet Dinosaur Garden','legendary','a garden with a friendly pet dinosaur']],
+ duds:[['🧌','Gnome With Gold Tooth','a garden gnome with a gold tooth by the door'],['🐐','A Goat','a goat standing on the roof'],['🚧','Wet Floor Sign','a wet-floor sign in the middle of the lawn'],['🪴','A Dying Plant','one sad dying plant'],['🧽','WELCOME-ISH Doormat','a doormat that says WELCOME-ISH']],
+ junk:[['🚽','Leaking Sewage Pipe','a leaking sewage pipe flooding the garden'],['🐀','Rat Family','a family of rats living in the walls and running across the floor'],['🪰','Fly Swarm','a swarm of flies over the front door'],['🧱','Black Mold Walls','black mold creeping up the walls'],['🛋️','Stained Smelly Couch','a stained, smelly couch in the living room'],['🪳','Cockroach Kitchen','cockroaches crawling around the kitchen'],['🦟','Swamp Yard','a green swampy pond in the yard with mosquitoes'],['🚽','Toilet In Living Room','a toilet sitting in the middle of the living room']],
+ flaws:[{emoji:'💧',name:'Leaky roof',bad:'a leaky roof with buckets catching drips',fixName:'New Roof',fixPhrase:'a perfect new roof'},{emoji:'🚪',name:'Broken door',bad:'a cracked, hanging front door',fixName:'New Front Door',fixPhrase:'a solid new front door'},{emoji:'🌱',name:'Jungle lawn',bad:'an overgrown jungle lawn',fixName:'Gardener Crew',fixPhrase:'a perfectly trimmed lawn'},{emoji:'🪟',name:'Broken windows',bad:'broken windows with cracks',fixName:'New Windows',fixPhrase:'spotless new windows'},{emoji:'🎨',name:'Peeling paint',bad:'peeling, stained paint on every wall',fixName:'Fresh Paint',fixPhrase:'fresh crisp paint'},{emoji:'💡',name:'Flickering lights',bad:'flickering, half-dead lights',fixName:'New Wiring',fixPhrase:'warm perfect lighting'}]},
+island:{label:'Island',emoji:'🏝️',thing:'private island',base:'a small, bare, empty tropical island with just sand and a few scrawny palm trees',shot:'Show the island from a high aerial angle at golden hour.',
+ nouns:N(['🏖️|Beach|beach','🌴|Palm Grove|palm grove','🏡|Villa|villa','⚓|Dock|dock','🗼|Lighthouse|lighthouse','🏨|Treehouse Hotel|treehouse hotel','🏞️|Lagoon|lagoon','💦|Waterfall|waterfall','♨️|Hot Spring|hot spring','🍹|Beach Bar|beach bar','🚁|Helipad|helipad','🛶|Boathouse|boathouse','🔥|Bonfire Pit|bonfire pit','🌋|Volcano|volcano','🕳️|Cave|cave','⛺|Campsite|campsite','🏄|Surf Break|surf break','🥾|Jungle Trail|jungle trail','🪢|Zipline|zipline','🏊|Cliff Pool|cliff pool','🌉|Jetty|jetty','🛌|Hammock Grove|hammock grove','🌇|Sunset Deck|sunset deck','🪸|Coral Reef|coral reef','🪨|Rock Arch|rock arch','🌺|Flower Garden|flower garden','🔭|Lookout Tower|lookout tower','🐠|Underwater Room|underwater room','🛩️|Seaplane Dock|seaplane dock','🍸|Swim-Up Bar|swim-up bar','⛲|Fountain|fountain','🌁|Rope Bridge|rope bridge','⛳|Mini Golf Course|mini golf course','⚽|Football Pitch|football pitch','🛖|Beach Cabana|beach cabana','🎣|Fishing Spot|fishing spot','🌬️|Windmill|windmill','🔥|Fire Show Stage|fire-show stage','🕵️|Secret Bunker|secret bunker','🛖|Bamboo Hut|bamboo hut','🎠|Swing Set|swing set','🏰|Sandcastle|sandcastle']),
+ specials:[['🌋','Villain Volcano Lair','legendary','a glowing volcano with a villain-style lair inside'],['🐉','Pet Dragon Cave','legendary','a cave with a friendly sleeping dragon'],['🛸','UFO Landing Pad','legendary','a glowing UFO landing pad'],['🏰','Golden Palace','legendary','a golden palace on the hill'],['🦈','Shark Lagoon Show','rare','a lagoon with sharks circling in clear water'],['🦜','Parrot Choir','rare','hundreds of colourful parrots in the trees']],
+ duds:[['🥥','One Coconut','a single lonely coconut on the sand'],['🪵','Driftwood Log','a driftwood log'],['🦀','Grumpy Crab','one grumpy crab glaring at you'],['🧴','Sunscreen Bottle','an old sunscreen bottle half buried in the sand'],['🏴‍☠️','Tiny Pirate Flag','a tiny pirate flag on a stick']],
+ junk:[['🗑️','Washed-Up Garbage Heap','a giant heap of washed-up garbage on the beach'],['🪰','Seagull Poop Rock','a rock completely covered in seagull poop'],['🐀','Beach Rats','rats running all over the beach'],['🪼','Jellyfish-Infested Lagoon','a lagoon full of stinging jellyfish'],['🦟','Mosquito Swamp','a green mosquito-filled swamp in the middle of the island'],['🤢','Rotting Seaweed Mountain','a mountain of rotting seaweed'],['🚽','Leaking Beach Toilet','a leaking outdoor toilet on the beach'],['🛢️','Oil Spill','a black oil spill along the shoreline']],
+ flaws:[{emoji:'⚓',name:'Half-sunk dock',bad:'a half-sunk, tilted dock',fixName:'Dock Repair Crew',fixPhrase:'a sturdy new dock'},{emoji:'🌴',name:'Dead palm trees',bad:'dead brown palm trees',fixName:'Palm Replanting',fixPhrase:'lush green palm trees'},{emoji:'🏖️',name:'Seaweed beach',bad:'a beach choked with seaweed',fixName:'Beach Cleaners',fixPhrase:'a clean white-sand beach'},{emoji:'🗼',name:'Broken lighthouse',bad:'a lighthouse with a broken lamp',fixName:'New Lighthouse Lamp',fixPhrase:'a bright working lighthouse'},{emoji:'🛖',name:'Leaking hut roof',bad:'a hut with a leaking roof',fixName:'New Thatch Roof',fixPhrase:'a perfect thatched roof'},{emoji:'🦟',name:'Mosquito cloud',bad:'a huge cloud of mosquitoes',fixName:'Bug Spray Fleet',fixPhrase:'a bug-free paradise'}]},
+yacht:{label:'Yacht',emoji:'🛥️',thing:'superyacht',base:'a small, plain white motor yacht with an empty deck',shot:'Show the yacht at sea with a cutaway so the interior is visible.',
+ nouns:N(['☀️|Sun Deck|sun deck','♨️|Jacuzzi|jacuzzi','🚁|Helipad|helipad','🎬|Cinema Lounge|cinema lounge','🧭|Captain Bridge|captain\'s bridge','🛏️|Master Suite|master suite','🍳|Galley|galley kitchen','🍸|Bar|bar','🚤|Jet-Ski Garage|jet-ski garage','🛝|Water Slide|water slide','⛵|Mast|mast','🚢|Hull|hull','⚓|Anchor|anchor','🍽️|Dining Deck|dining deck','🏋️|Gym|gym','🧖|Spa|spa','🛋️|Sky Lounge|sky lounge','🤿|Swim Platform|swim platform','🔱|Submarine Bay|submarine bay','🏊|Diving Board|diving board','🛞|Steering Wheel|steering wheel','🛟|Lifeboat|lifeboat','💡|Deck Lighting|deck lighting','🎧|DJ Booth|DJ booth','🏊|Plunge Pool|plunge pool','📚|Library|library','🎣|Fishing Deck|fishing deck','🛗|Elevator|elevator']),
+ specials:[['🦈','Shark-Viewing Window','rare','an underwater window with sharks swimming past'],['🛸','UFO Tender','legendary','a small UFO that serves as the tender boat'],['🐙','Kraken Figurehead','legendary','a giant glowing kraken figurehead'],['🌈','Rainbow Wake','legendary','a shimmering rainbow wake behind it'],['🏝️','Mini Island On Deck','rare','a tiny sandy island with palm trees on the back deck']],
+ duds:[['🦆','Rubber Duck Captain','a rubber duck in the captain\'s hat'],['🪣','A Bucket','a bucket sitting on deck'],['🧦','Lost Sock','one lost sock on the deck'],['🛶','Tiny Paddle','a tiny paddle tied to the railing'],['🎈','Balloon On The Mast','a balloon tied to the mast']],
+ junk:[['🚽','Leaking Onboard Toilet','a leaking toilet pipe dripping down the side of the hull'],['🐟','Dead Fish Smell','dead fish piled in a corner with green stink lines'],['🪰','Seagull Poop Deck','a deck covered in seagull poop'],['🐀','Bilge Rats','rats scurrying across the deck'],['🛢️','Bilge Oil Leak','a black oil leak trailing behind'],['🪳','Cockroach Galley','cockroaches in the galley'],['🤢','Seasick Green Carpet','a sticky green carpet'],['🪸','Barnacle-Covered Hull','a hull covered in barnacles and slime']],
+ flaws:[{emoji:'🚢',name:'Cracked hull',bad:'a cracked hull patched with tape',fixName:'Hull Repair',fixPhrase:'a flawless polished hull'},{emoji:'⛵',name:'Torn sail',bad:'a torn, flapping sail',fixName:'New Sails',fixPhrase:'crisp white sails'},{emoji:'⚓',name:'Rusty anchor',bad:'a rusty, broken anchor',fixName:'New Anchor',fixPhrase:'a shiny new anchor'},{emoji:'💨',name:'Smoking engine',bad:'an engine pouring out smoke',fixName:'Engine Overhaul',fixPhrase:'a clean powerful engine'},{emoji:'💧',name:'Leaking deck',bad:'a deck with puddles everywhere',fixName:'Deck Sealant',fixPhrase:'a dry polished teak deck'},{emoji:'🛟',name:'Missing lifeboat',bad:'an empty lifeboat rack with no lifeboat',fixName:'New Lifeboat',fixPhrase:'bright orange lifeboats'}]},
+castle:{label:'Castle',emoji:'🏰',thing:'castle',base:'a small, plain stone castle keep with empty rooms',shot:'Show the castle from outside with cutaway views of the rooms.',
+ nouns:N(['🗼|Tower|tower','🌉|Drawbridge|drawbridge','🌊|Moat|moat','👑|Throne Room|throne room','🕳️|Dungeon|dungeon','🍖|Great Hall|great hall','⚔️|Armory|armory','📚|Library|library','🍳|Kitchen|kitchen','🏰|Courtyard|courtyard','🧱|Outer Wall|outer wall','🚪|Gate|gate','🚩|Banner|banner','🌳|Garden Maze|garden maze','🐎|Stable|stable','🧙|Wizard Lab|wizard lab','🛏️|Bedchamber|bedchamber','🌇|Balcony|balcony','🔔|Bell Tower|bell tower','💰|Treasury|treasury','⛲|Fountain|fountain','🏹|Training Yard|training yard','🐉|Dragon Perch|dragon perch','🗝️|Secret Passage|secret passage','💣|Cannon|cannon','⛪|Chapel|chapel','🏠|Roof|roof','🪟|Window|window','🕯️|Chandelier|chandelier']),
+ specials:[['🐉','Real Dragon','legendary','a huge friendly dragon curled around the tallest tower'],['🌋','Lava Moat','legendary','a moat filled with glowing lava'],['☁️','Floating Castle','legendary','the whole castle floating on a cloud'],['🦄','Unicorn Stable','rare','a stable with glowing unicorns'],['🛡️','Giant Knight Statues','rare','giant knight statues guarding the gate']],
+ duds:[['🪣','A Rusty Bucket','a rusty bucket in the courtyard'],['🦆','Duck In The Moat','a single duck in the moat'],['🐓','One Angry Chicken','one angry chicken on the wall'],['🛡️','Cardboard Shield','a cardboard shield hanging on the wall'],['🧹','Broom Knight','a knight armed with a broom']],
+ junk:[['🚽','Medieval Toilet Hole','a medieval toilet hole dumping onto the walls below'],['🐀','Dungeon Rats','giant rats pouring out of the dungeon'],['🪰','Flies Over The Moat','a cloud of flies over the moat'],['🦇','Bat Poop Tower','a tower covered in bat poop'],['🪳','Cockroach Kitchen','cockroaches swarming the kitchen'],['🤢','Sewer Moat','a brown stinking sewer-filled moat'],['🕸️','Giant Spider Webs','giant spider webs over every window'],['🧱','Mold-Covered Walls','green mould covering the walls']],
+ flaws:[{emoji:'🗼',name:'Crumbling tower',bad:'a crumbling tower missing stones',fixName:'Tower Masons',fixPhrase:'a solid tall tower'},{emoji:'🌉',name:'Broken drawbridge',bad:'a drawbridge with a snapped chain',fixName:'New Drawbridge Chain',fixPhrase:'a working drawbridge'},{emoji:'🌊',name:'Swampy moat',bad:'a green swampy moat',fixName:'Moat Cleaners',fixPhrase:'a crystal-clear moat'},{emoji:'🧱',name:'Cracked wall',bad:'a huge crack in the outer wall',fixName:'Wall Repair',fixPhrase:'strong stone walls'},{emoji:'💧',name:'Leaking roof',bad:'a leaking roof with missing tiles',fixName:'New Roof Tiles',fixPhrase:'a perfect tile roof'},{emoji:'🚪',name:'Stuck gate',bad:'a gate stuck half open and hanging off its hinges',fixName:'New Gate',fixPhrase:'a mighty iron gate'}]}
+,
+court:{label:'Basketball Court',emoji:'🏀',thing:'basketball court',base:'a plain outdoor basketball court with a faded line and one rusty hoop',shot:'Show the whole court from a wide angle, crowd and arena included.',
+ nouns:N(['🏀|Hoop|hoop','🪵|Floor|floor','🏟️|Stands|stands','💡|Floodlight|floodlight','📺|Scoreboard|scoreboard','🎨|Mural|mural','🪑|Bench|bench','🥤|Snack Bar|snack bar','🚿|Locker Room|locker room','🔊|Sound System|sound system','🏆|Trophy Case|trophy case','👟|Sneaker Wall|sneaker wall','🧊|Cooler|cooler','🎤|Commentary Booth|commentary booth','🚪|Tunnel|player tunnel','🪟|Roof|roof','🧱|Fence|fence','⛲|Water Fountain|water fountain','🛋️|VIP Box|VIP box','🏋️|Gym Corner|training gym','🚌|Team Bus|team bus','🎶|DJ Booth|DJ booth','🔥|Pyro Machine|pyrotechnics rig','📸|Camera Rig|camera rig']),
+ specials:[['🐉','Dragon Mascot','legendary','a giant fire-breathing dragon mascot on the sideline'],['🪐','Zero-Gravity Court','legendary','a court where the players float'],['🌈','Rainbow Hoop','rare','a glowing rainbow hoop']],
+ duds:[['🏀','One Flat Ball','one flat basketball'],['🧦','Lost Sock','a lost sock at centre court'],['🐓','Angry Chicken','one angry chicken on the sideline'],['🪣','A Bucket','a bucket sitting by the hoop']],
+ junk:[['🚽','Leaking Locker Toilet','a leaking toilet overflowing across the locker room floor'],['🪰','Fly-Covered Bench','a bench covered in flies'],['🐀','Rats Under Stands','rats running under the stands'],['🤢','Puddle Court','a court with huge slimy puddles'],['🪳','Cockroach Snack Bar','cockroaches in the snack bar']],
+ flaws:[{emoji:'🏀',name:'Bent hoop',bad:'a bent, sagging hoop with a torn net',fixName:'New Hoop',fixPhrase:'a perfect hoop with a fresh net'},{emoji:'🪵',name:'Cracked floor',bad:'a cracked, splintering floor',fixName:'Floor Refinish',fixPhrase:'a glossy polished floor'},{emoji:'💡',name:'Dead lights',bad:'half the floodlights dead',fixName:'New Floodlights',fixPhrase:'blazing floodlights'},{emoji:'📺',name:'Broken scoreboard',bad:'a scoreboard showing 000-000 with cracked glass',fixName:'New Scoreboard',fixPhrase:'a huge working scoreboard'},{emoji:'🏟️',name:'Rusty stands',bad:'rusty, wobbly stands',fixName:'New Stands',fixPhrase:'solid stands full of fans'},{emoji:'🎨',name:'Faded lines',bad:'faded, barely visible court lines',fixName:'Repaint Crew',fixPhrase:'crisp bright court lines'}]},
+skate:{label:'Skatepark',emoji:'🛹',thing:'skatepark',base:'a plain concrete lot with one cracked ramp',shot:'Show the whole skatepark from a high angle with skaters in action.',
+ nouns:N(['🛹|Half-Pipe|half-pipe','🪜|Stair Set|stair set','🛤️|Rail|handrail','🕳️|Bowl|bowl','🧱|Ledge|ledge','🏞️|Mega Ramp|mega ramp','🎨|Graffiti Wall|graffiti wall','🔊|Speaker Stack|speaker stack','🥤|Smoothie Stand|smoothie stand','💡|Floodlight|floodlight','🪑|Bench|bench','🚿|Water Station|water station','🛖|Pro Shop|pro shop','📸|Camera Tower|camera tower','🎤|Stage|stage','🌴|Palm Tree|palm tree','🔥|Fire Pit|fire pit','🧊|Foam Pit|foam pit','🌉|Bridge Gap|bridge gap','🏆|Trophy Wall|trophy wall','🚌|Skate Bus|skate bus','🪞|Mirror Wall|mirror wall']),
+ specials:[['🌋','Lava Bowl','legendary','a bowl filled with glowing lava below the track'],['🚀','Rocket Launch Ramp','legendary','a ramp that launches skaters toward the sky'],['🐊','Alligator Moat','rare','a gap with an alligator pit']],
+ duds:[['🛹','One Wheel','a single skateboard wheel'],['🩹','Band-Aid Dispenser','a band-aid dispenser'],['🥔','A Potato','a potato on a rail'],['🧦','Lost Sock','a lost sock']],
+ junk:[['🚽','Leaking Porta-Potty','a leaking porta-potty tipping over'],['🪰','Flies Over Smoothie','flies swarming the smoothie stand'],['🤢','Puddle Bowl','a bowl full of green swamp water'],['🐀','Rat Ramp','rats living in the half-pipe'],['🧴','Broken Glass Field','shattered glass across the ground']],
+ flaws:[{emoji:'🛹',name:'Cracked ramp',bad:'a ramp with a huge crack',fixName:'Ramp Repair',fixPhrase:'a smooth fresh ramp'},{emoji:'🛤️',name:'Bent rail',bad:'a badly bent rail',fixName:'New Rail',fixPhrase:'a straight shiny rail'},{emoji:'🎨',name:'Faded wall',bad:'a faded, peeling graffiti wall',fixName:'Mural Artists',fixPhrase:'a vivid fresh graffiti wall'},{emoji:'💡',name:'No lights',bad:'broken lights leaving the park dark',fixName:'New Lights',fixPhrase:'bright floodlights'},{emoji:'🌱',name:'Weeds',bad:'weeds growing through the concrete',fixName:'Concrete Crew',fixPhrase:'fresh clean concrete'},{emoji:'🪑',name:'Broken bench',bad:'a broken, collapsed bench',fixName:'New Benches',fixPhrase:'solid new benches'}]},
+restaurant:{label:'Restaurant',emoji:'🍽️',thing:'restaurant',base:'a small, plain empty cafe with four wobbly tables',shot:'Show the restaurant interior with the street outside visible through the windows.',
+ nouns:N(['🍳|Kitchen|open kitchen','🍷|Bar|bar','🪑|Table|dining table','🛋️|Booth|booth seating','💡|Chandelier|chandelier','🎹|Stage|live music stage','🍰|Dessert Counter|dessert counter','🌿|Patio|patio','🔥|Pizza Oven|pizza oven','🐟|Fish Tank|fish tank','🧑‍🍳|Chef Station|chef station','🍣|Sushi Belt|sushi conveyor belt','🪟|Window|window','🎨|Menu Board|menu board','🚪|Entrance|entrance','🌸|Flower Wall|flower wall','🔊|Sound System|sound system','🛗|Rooftop Lift|rooftop lift','🍾|Wine Wall|wine wall','🧊|Walk-in Fridge|walk-in fridge','🚗|Valet Stand|valet stand','📷|Photo Corner|photo corner']),
+ specials:[['🤖','Robot Waiters','legendary','robot waiters gliding between tables'],['🐉','Dragon Grill','legendary','a grill powered by a real dragon'],['🎡','Rotating Dining Room','rare','a slowly rotating dining room']],
+ duds:[['🍞','Stale Bread Basket','a basket of stale bread'],['🥄','One Spoon','a single spoon on every table'],['🪰','Single Fly','one fly'],['🥔','Potato Special','a plate with only a potato']],
+ junk:[['🪳','Cockroach Kitchen','cockroaches running across the kitchen counters'],['🐀','Rat Chef','a rat in a chef hat on the counter'],['🚽','Leaking Toilet Wall','a leaking toilet pipe dripping onto the dining floor'],['🤢','Mystery Stain Tablecloths','tablecloths with huge mystery stains'],['🪰','Fly Buffet','a buffet swarming with flies']],
+ flaws:[{emoji:'🍳',name:'Smoking stove',bad:'a stove pouring out black smoke',fixName:'New Stove',fixPhrase:'a gleaming professional stove'},{emoji:'🪑',name:'Wobbly tables',bad:'wobbly tables propped up with folded paper',fixName:'New Tables',fixPhrase:'solid elegant tables'},{emoji:'💡',name:'Flickering lights',bad:'flickering half-dead lights',fixName:'New Lighting',fixPhrase:'warm perfect lighting'},{emoji:'🪟',name:'Dirty windows',bad:'filthy, greasy windows',fixName:'Window Cleaners',fixPhrase:'spotless windows'},{emoji:'🎨',name:'Wrong menu',bad:'a handwritten menu full of crossed-out items',fixName:'Menu Designer',fixPhrase:'a beautiful printed menu'},{emoji:'🚪',name:'Sticky door',bad:'a front door that is stuck and hanging',fixName:'New Door',fixPhrase:'a grand welcoming door'}]},
+park:{label:'Theme Park',emoji:'🎢',thing:'theme park',base:'a small, empty fairground with one tiny carousel',shot:'Show the whole park from a high angle with crowds and rides in motion.',
+ nouns:N(['🎢|Roller Coaster|roller coaster','🎡|Ferris Wheel|Ferris wheel','🎠|Carousel|carousel','🌊|Water Ride|water ride','👻|Haunted House|haunted house','🏰|Castle Gate|castle gate','🍿|Snack Stand|snack stand','🎪|Big Top|big top tent','🚂|Park Train|park train','🪂|Drop Tower|drop tower','🛝|Giant Slide|giant slide','🎯|Arcade|arcade','🏊|Wave Pool|wave pool','🎆|Fireworks Stage|fireworks stage','🧸|Mascot Plaza|mascot plaza','🌳|Maze Garden|maze garden','🚤|Log Flume|log flume','🛍️|Gift Shop|gift shop','🎤|Concert Stage|concert stage','🚡|Cable Car|cable car','🪞|Mirror Maze|mirror maze','🏁|Go-Kart Track|go-kart track']),
+ specials:[['🦖','Dinosaur Safari Ride','legendary','a ride through a valley of friendly animatronic dinosaurs'],['🚀','Space Launch Coaster','legendary','a coaster that launches through the clouds'],['🍭','Candy Land','rare','a land made entirely of candy']],
+ duds:[['🎈','One Balloon','one lonely balloon'],['🎟️','Torn Ticket','a torn ticket'],['🧸','Sad Mascot','a very sad mascot'],['🍬','Single Candy','a single candy']],
+ junk:[['🤢','Vomit Bucket Ride','a ride with buckets of sick everywhere'],['🪰','Fly Cotton Candy','a cotton candy stand covered in flies'],['🚽','Overflowing Park Toilets','overflowing park toilets with a river of sludge'],['🐀','Rats On The Carousel','rats riding the carousel'],['🪳','Cockroach Snack Stand','cockroaches on the snack stand']],
+ flaws:[{emoji:'🎢',name:'Squeaky coaster',bad:'a coaster with a missing track piece',fixName:'Coaster Engineers',fixPhrase:'a smooth, safe coaster'},{emoji:'🎡',name:'Stuck wheel',bad:'a Ferris wheel stuck at a tilt',fixName:'New Wheel Motor',fixPhrase:'a perfectly turning Ferris wheel'},{emoji:'🎠',name:'Broken carousel',bad:'a carousel with headless horses',fixName:'Horse Restorers',fixPhrase:'a gleaming carousel'},{emoji:'💡',name:'Dead lights',bad:'dead lights across the park',fixName:'New Lights',fixPhrase:'a park glowing with lights'},{emoji:'🎟️',name:'Closed gate',bad:'a rusty ticket gate that will not open',fixName:'New Gate',fixPhrase:'a grand open gate'},{emoji:'🌧️',name:'Constant rain cloud',bad:'a small angry rain cloud over the park',fixName:'Weather Wizard',fixPhrase:'a perfect sunny sky'}]},
+zoo:{label:'Zoo',emoji:'🦁',thing:'zoo',base:'a small, empty zoo with one tired goat and a fence',shot:'Show the whole zoo from a high angle with visitors and animals.',
+ nouns:N(['🦁|Lion Den|lion den','🐘|Elephant Yard|elephant yard','🦒|Giraffe Tower|giraffe tower','🐧|Penguin Pool|penguin pool','🦜|Aviary|aviary','🐠|Aquarium Tunnel|aquarium tunnel','🦓|Savanna|savanna','🐒|Monkey Island|monkey island','🐊|Reptile House|reptile house','🌳|Rainforest Dome|rainforest dome','🚂|Safari Train|safari train','🍦|Ice Cream Stand|ice cream stand','🛍️|Gift Shop|gift shop','🧑‍⚕️|Animal Hospital|animal hospital','🐼|Panda Bamboo Forest|panda bamboo forest','🐻‍❄️|Arctic Zone|arctic zone','🌉|Treetop Walkway|treetop walkway','🎪|Show Arena|show arena','🐢|Petting Zoo|petting zoo','🦘|Outback Zone|outback zone']),
+ specials:[['🐉','Real Dragon Enclosure','legendary','an enclosure with a real friendly dragon'],['🦖','Dinosaur Wing','legendary','a wing with living dinosaurs'],['🦄','Unicorn Meadow','rare','a meadow with glowing unicorns']],
+ duds:[['🐐','One Tired Goat','one tired goat'],['🪣','Empty Cage','an empty cage'],['🥕','Single Carrot','a single carrot'],['🐌','A Snail','a snail on a rock']],
+ junk:[['💩','Giant Poop Pile','a giant steaming pile of animal poop'],['🪰','Fly Cloud Enclosure','an enclosure swarming with flies'],['🤢','Smelly Mud Pit','a stinking brown mud pit'],['🐀','Rat Infestation','rats running through the visitor paths'],['🚽','Broken Zoo Toilets','overflowing broken toilets']],
+ flaws:[{emoji:'🦁',name:'Broken fence',bad:'a broken fence with a hole in it',fixName:'New Fence',fixPhrase:'a strong secure fence'},{emoji:'🌳',name:'Dead trees',bad:'dead bare trees',fixName:'Tree Planters',fixPhrase:'lush green trees'},{emoji:'🐧',name:'Green pond',bad:'a green swampy pond',fixName:'Pond Cleaners',fixPhrase:'a crystal-clear pond'},{emoji:'🧑‍⚕️',name:'Hungry animals',bad:'grumpy hungry animals and empty bowls',fixName:'Feeding Crew',fixPhrase:'happy fed animals'},{emoji:'🚂',name:'Broken train',bad:'a safari train with no wheels',fixName:'Train Repair',fixPhrase:'a shiny working train'},{emoji:'🪧',name:'Wrong signs',bad:'signs with every animal labelled wrong',fixName:'Sign Painters',fixPhrase:'beautiful correct signs'}]},
+stadium:{label:'Football Stadium',emoji:'⚽',thing:'football stadium',base:'a small, empty stadium with one stand and patchy grass',shot:'Show the stadium from a high angle on match day with a roaring crowd.',
+ nouns:N(['🏟️|Stand|main stand','🌱|Pitch|pitch','📺|Big Screen|big screen','💡|Floodlight|floodlight','🪟|Roof|retractable roof','🛋️|VIP Lounge|VIP lounge','🏆|Trophy Room|trophy room','🚿|Changing Room|changing room','🍔|Food Court|food court','🎶|Fan Zone|fan zone','🚇|Tunnel|player tunnel','📸|Press Box|press box','🥁|Ultras Section|ultras section','⛲|Fountain Plaza|fountain plaza','🛍️|Club Shop|club shop','🚌|Team Bus|team bus','🎤|Announcer Booth|announcer booth','🔥|Flare Show|flare show','🧑‍⚕️|Medical Room|medical room','🪑|Seats|seats']),
+ specials:[['🐉','Dragon Mascot','legendary','a fire-breathing dragon mascot above the tunnel'],['🛸','Hovering Pitch','legendary','a pitch that hovers above the ground'],['🌈','Rainbow Roof','rare','a glowing rainbow roof']],
+ duds:[['⚽','One Flat Ball','one flat ball'],['🧤','Single Glove','a single goalkeeper glove'],['🥔','Potato','a potato on the centre spot'],['🪣','A Bucket','a bucket by the touchline']],
+ junk:[['🤢','Muddy Swamp Pitch','a pitch that is half swamp'],['🚽','Overflowing Stadium Toilets','overflowing toilets leaking into the concourse'],['🪰','Fly Burger Stand','a burger stand covered in flies'],['🐀','Rats In The Stands','rats running under the seats'],['🪳','Cockroach Changing Room','cockroaches in the changing room']],
+ flaws:[{emoji:'🌱',name:'Patchy pitch',bad:'a patchy, muddy pitch',fixName:'Groundskeepers',fixPhrase:'a perfect striped pitch'},{emoji:'📺',name:'Broken screen',bad:'a cracked big screen',fixName:'New Screen',fixPhrase:'a giant crystal-clear screen'},{emoji:'💡',name:'Dim lights',bad:'dim flickering floodlights',fixName:'New Floodlights',fixPhrase:'blazing floodlights'},{emoji:'🏟️',name:'Rusty stand',bad:'a rusty wobbly stand',fixName:'New Stand',fixPhrase:'a solid packed stand'},{emoji:'🥅',name:'Torn nets',bad:'goals with torn nets',fixName:'New Goals',fixPhrase:'perfect goals with fresh nets'},{emoji:'🚪',name:'Locked gates',bad:'locked rusty gates',fixName:'New Gates',fixPhrase:'wide open gates'}]}
+};
+const TYPE_KEYS=Object.keys(TYPES);
+const poolSize=k=>TYPES[k].nouns.length*(MODS.common.length+MODS.rare.length+MODS.legendary.length)+TYPES[k].specials.length;
+const totalPool=TYPE_KEYS.reduce((a,k)=>a+poolSize(k),0);
+
+/* ================= GLOBAL STATE ================= */
+let MODE=null; // 'host' | 'guest' | 'physical'
+let S=null,H=null,me=null,view=null,tEnd=0;
+let peer=null,hostConn=null,roomCode=null,pid=null,lobby=[],connByPid={};
+let selType='jet',selRounds=12,selCash=20,customItems=[],muted=false;
+try{pid=localStorage.getItem('bb_pid')}catch(e){}
+if(!pid){pid='p'+Math.random().toString(36).slice(2,10);try{localStorage.setItem('bb_pid',pid)}catch(e){}}
+// tabs on the same browser would share a pid; use a per-tab id instead
+pid=pid+'-'+Math.random().toString(36).slice(2,6);
+
+/* ================= SOUND ================= */
+let AC;
+function tone(f,d=.12,type='sine',v=.05,delay=0){
+  if(muted)return;
+  try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();
+    const o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.value=f;o.connect(g);g.connect(AC.destination);
+    const s=AC.currentTime+delay;g.gain.setValueAtTime(v,s);g.gain.exponentialRampToValueAtTime(.0001,s+d);o.start(s);o.stop(s+d);}catch(e){}
+}
+const sfx={bid:()=>{tone(520,.1,'triangle');tone(700,.12,'triangle',.05,.07)},pass:()=>tone(240,.18),
+ spin:()=>[0,1,2,3,4,5,6,7].forEach(i=>tone(300+i*60,.08,'square',.025,i*.14)),
+ sold:()=>{tone(523,.15,'triangle',.07);tone(659,.15,'triangle',.07,.12);tone(784,.3,'triangle',.07,.24)},
+ big:()=>[523,659,784,1047,1319].forEach((f,i)=>tone(f,.25,'triangle',.07,i*.1))};
+
+/* ================= ITEM GENERATION (host only) ================= */
+const art=p=>(/^[aeiou]/i.test(p)?'an ':'a ')+p;
+function genItem(tier){
+  const T=TYPES[S.build];
+  if(Math.random()<.12){
+    const sp=T.specials.concat(H.custom.map(c=>[ '✨',c.name,c.tier,c.phrase])).filter(s=>s[2]===tier&&!H.usedSpecial.has(s[1]));
+    if(sp.length){const s=pick(sp);H.usedSpecial.add(s[1]);return{id:'s'+Math.random(),emoji:s[0],name:s[1],tier,phrase:s[3]}}
+  }
+  let nouns=T.nouns.filter(n=>!H.usedBase.has(n.n));if(!nouns.length){H.usedBase.clear();nouns=T.nouns}
+  const n=pick(nouns);
+  let mods=MODS[tier].filter(m=>(H.modCount[m]||0)<2);if(!mods.length)mods=MODS[tier];
+  const m=pick(mods),[mn,mp]=m.split('|');
+  H.usedBase.add(n.n);H.modCount[m]=(H.modCount[m]||0)+1;
+  return{id:'g'+Math.random(),emoji:n.e,name:mn+' '+n.n,tier,phrase:art(mp)+' '+n.p};
+}
+function genJunk(){
+  const T=TYPES[S.build];
+  const left=T.junk.filter(j=>!H.usedJunk.has(j[1]));
+  if(left.length&&Math.random()<.5){const j=pick(left);H.usedJunk.add(j[1]);return{id:'j'+Math.random(),emoji:j[0],name:j[1],tier:'junk',junk:true,phrase:j[2]}}
+  const n=pick(T.nouns),[bn,bp]=pick(BAD).split('|');
+  return{id:'j'+Math.random(),emoji:n.e,name:bn+' '+n.n,tier:'junk',junk:true,phrase:art(bp)+' '+n.p};
+}
+function pickTier(){const r=Math.random();return r<.5?'common':r<.82?'rare':'legendary'}
+function drawItem(){
+  if(S.noWant>=3){S.noWant=0;return genJunk()}
+  if(H.repairRounds.length&&S.round>=H.repairRounds[0]&&H.repSkip!==S.round)
+    return{id:'rep'+Math.random(),emoji:'🔧',name:'Repair Crew',tier:'repair',phrase:''};
+  if(Math.random()<.2)return genJunk();
+  if(Math.random()<.28)return{id:'box'+Math.random(),box:true,tier:pickTier(),emoji:'🎁',name:'Mystery Box'};
+  return genItem(pickTier());
+}
+function openBox(tier){
+  const r=Math.random(),T=TYPES[S.build];
+  if(r<.12){const d=pick(T.duds);return{id:'d'+Math.random(),emoji:d[0],name:d[1],tier:'dud',phrase:d[2]}}
+  if(r<.24)return genJunk();
+  return genItem(tier);
+}
+
+/* ================= HOST ENGINE ================= */
+function publish(){
+  S.tleft=S.deadline?Math.max(0,S.deadline-Date.now()):0;S.ver=(S.ver||0)+1;
+  if(MODE==='host'&&H&&S.phase!=='lobby'){
+    S.players.forEach((p,k)=>{const c=connByPid[H.pids[k]];if(c&&c.open&&p.online&&k!==0)try{c.send({t:'state',s:S,you:k})}catch(e){}});
+  }
+  onState(S,MODE==='physical'?null:0);
+}
+function startGame(){
+  const type=selType==='random'?pick(TYPE_KEYS):selType,T=TYPES[type];
+  let names,pids;
+  if(MODE==='physical'){names=$$('#physList input').map(i=>i.value.trim()).filter(Boolean);pids=names.map((_,i)=>'x'+i)}
+  else{names=lobby.filter(l=>l.online).map(l=>l.name);pids=lobby.filter(l=>l.online).map(l=>l.pid)}
+  if(names.length<2){$('#setupErr').textContent=MODE==='physical'?'Add at least 2 players.':'Wait for at least one friend to join first.';return}
+  const fl=shuffle(T.flaws);
+  S={phase:'auction',build:type,cfg:{mode:MODE==='physical'?'physical':'online',rounds:selRounds,cash:selCash,twist:$('#twist').value.trim()},
+    players:names.map((n,i)=>({name:n,cash:selCash,spins:2,items:[],flaw:{...fl[i%fl.length],fixed:false},passed:false,online:true})),
+    round:1,max:selRounds,starter:0,turn:0,item:null,bid:0,bidder:null,deadline:0,tleft:0,dur:0,itemSeq:0,noWant:0,winner:null,wheelTo:null,ver:0};
+  const nrep=Math.max(1,Math.min(Math.round(names.length*.7),Math.floor(selRounds/2)));
+  H={pids,usedBase:new Set(),modCount:{},usedSpecial:new Set(),usedJunk:new Set(),custom:[...customItems],to:null,n:0,
+     repairRounds:Array.from({length:nrep},(_,k)=>2+Math.floor(k*(selRounds-3)/nrep)),repSkip:0};
+  if(S.cfg.mode==='online')H.tick=setInterval(tick,250);
+  view=null;
+  newItem();
+}
+function firstFrom(start){for(let k=0;k<S.players.length;k++){const j=(start+k)%S.players.length;if(!S.players[j].passed)return j}return -1}
+function nextTurn(from){for(let k=1;k<=S.players.length;k++){const j=(from+k)%S.players.length;if(!S.players[j].passed&&j!==S.bidder)return j}return -1}
+function newItem(){
+  clearTimeout(H.to);
+  S.item=drawItem();S.itemSeq++;S.bid=0;S.bidder=null;S.phase='auction';
+  if(S.players.every(p=>p.cash<1)){endGame();return}
+  S.players.forEach(p=>{p.passed=!p.online||(!S.item.junk&&p.cash<1)});
+  if(S.cfg.mode==='physical')S.turn=firstFrom(S.starter);
+  else{S.dur=S.item.junk?JUNK_MS:IDLE_MS;S.deadline=Date.now()+S.dur}
+  if(!checkEnd())publish();
+}
+function checkEnd(){
+  if(S.phase!=='auction')return false;
+  const act=[];S.players.forEach((q,k)=>{if(!q.passed&&q.online)act.push(k)});
+  if(S.bid>0){if(act.every(k=>k===S.bidder)){win(S.bidder);return true}}
+  else if(!act.length){nobodyWants();return true}
+  return false;
+}
+function handle(i,a){
+  if(!S||!H||S.phase==='lobby'||S.phase==='end')return;
+  const p=S.players[i];if(!p)return;
+  const phys=S.cfg.mode==='physical';
+  if(a.t==='next'){if(S.phase==='reveal'&&(phys||i===0))nextRound();return}
+  if(S.phase!=='auction')return;
+  if(phys&&S.turn!==i)return;
+  const it=S.item;
+  if(a.t==='bid'&&!it.junk){
+    const add=Math.floor(+a.add);if(!(add>=1)||add>1000)return;
+    if(S.bidder===i)return;const nb=S.bid+add;if(nb>p.cash)return;
+    S.bid=nb;S.bidder=i;p.passed=false;
+    if(phys){S.players.forEach((q,k)=>{if(k!==i&&q.cash<=nb)q.passed=true});S.turn=nextTurn(i)}
+    else{S.dur=BID_MS;S.deadline=Date.now()+BID_MS}
+    if(!checkEnd())publish();
+  }else if(a.t==='take'&&it.junk){takeJunk(i,false)}
+  else if(a.t==='pass'){
+    if(S.bidder===i&&S.bid>0)return;
+    p.passed=true;
+    if(phys&&S.turn===i)S.turn=nextTurn(i);
+    if(!checkEnd())publish();
+  }else if(a.t==='spin'){
+    if(S.bid>0||p.spins<1)return;
+    p.spins--;respin(false);
+  }
+}
+function respin(auto){
+  if(S.item.tier==='repair')H.repSkip=S.round;
+  S.phase='spinning';S.spinAuto=auto;S.deadline=0;
+  if(auto)S.noWant++;
+  publish();
+  clearTimeout(H.to);H.to=setTimeout(newItem,1400);
+}
+function nobodyWants(){if(S.item.junk)wheel();else respin(true)}
+function wheel(){
+  const on=S.players.map((p,k)=>p.online?k:-1).filter(k=>k>=0);
+  S.phase='wheel';S.wheelTo=pick(on);S.deadline=0;publish();
+  clearTimeout(H.to);H.to=setTimeout(()=>takeJunk(S.wheelTo,true),1800);
+}
+function takeJunk(i,forced){
+  if(S.phase!=='auction'&&S.phase!=='wheel')return;
+  const p=S.players[i],got={...S.item,fresh:true};
+  if(!forced)p.cash+=BOUNTY;
+  p.items.push(got);
+  reveal({idx:i,price:0,got,boxTier:null,junkMode:forced?'forced':'took'});
+}
+function win(i){
+  const p=S.players[i],it=S.item;
+  p.cash-=S.bid;
+  let got={...it},boxTier=null;
+  if(it.box){boxTier=it.tier;got=openBox(it.tier)}
+  if(it.tier==='repair'){
+    H.repairRounds.shift();
+    if(!p.flaw.fixed){p.flaw.fixed=true;got={emoji:p.flaw.emoji,name:'Repair: '+p.flaw.fixName,tier:'repair',phrase:p.flaw.fixPhrase}}
+    else got={emoji:'🔧',name:'Repair Crew (nothing to fix)',tier:'repair',wasted:true,phrase:''};
+  }
+  got.fresh=true;
+  p.items.push(got);
+  reveal({idx:i,price:S.bid,got,boxTier,junkMode:null});
+}
+function reveal(w){
+  clearTimeout(H.to);
+  S.phase='reveal';S.winner=w;
+  if(S.cfg.mode==='online'){S.dur=REVEAL_MS+(w.boxTier?1400:0);S.deadline=Date.now()+S.dur}else S.deadline=0;
+  publish();
+}
+function nextRound(){
+  if(S.round>=S.max){endGame();return}
+  S.round++;S.starter=(S.starter+1)%S.players.length;
+  S.players.forEach(p=>p.items.forEach(i=>i.fresh=false));
+  newItem();
+}
+function endGame(){
+  clearTimeout(H.to);clearInterval(H.tick);
+  S.phase='end';S.deadline=0;publish();
+}
+function tick(){
+  if(!S||!H||S.phase==='end')return;
+  const now=Date.now();
+  if(S.phase==='auction'&&S.deadline&&now>=S.deadline){S.deadline=0;if(S.bid>0&&!S.item.junk)win(S.bidder);else nobodyWants()}
+  else if(S.phase==='reveal'&&S.deadline&&now>=S.deadline){S.deadline=0;nextRound()}
+  if(++H.n%8===0&&S&&S.phase!=='end')publish();
+}
+
+/* ================= ACTIONS FROM UI ================= */
+function act(a){
+  if(MODE==='guest'){if(hostConn&&hostConn.open)hostConn.send({t:'act',a});return}
+  handle(MODE==='physical'?Math.max(S.turn,0):0,a);
+}
+
+/* ================= NETWORK ================= */
+const CODE_CH='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const newCode=()=>Array.from({length:5},()=>CODE_CH[Math.floor(Math.random()*CODE_CH.length)]).join('');
+function banner(m,ms=3500){const b=$('#banner');b.textContent=m;b.classList.remove('hidden');clearTimeout(banner.t);banner.t=setTimeout(()=>b.classList.add('hidden'),ms)}
+function hostRoom(){
+  if(typeof Peer==='undefined'){$('#linkNote').textContent='Could not load the online library. Check your internet and reload.';return}
+  roomCode=newCode();
+  peer=new Peer('bidbuild-'+roomCode);
+  peer.on('open',()=>{
+    const base=location.origin==='null'||location.protocol==='file:'?'(host this page online first)':location.origin+location.pathname;
+    $('#roomLink').value=base+'#join='+roomCode;
+    $('#linkNote').textContent=location.protocol==='file:'?'This copy is only on your laptop, so friends cannot open it yet. It needs to be published at a web address first.':'Friends open the link, type their name, done. Keep this tab open: the game runs here.';
+  });
+  peer.on('connection',c=>{
+    c.on('data',d=>onHostData(c,d));
+    c.on('close',()=>onDrop(c));
+  });
+  peer.on('error',e=>{if(e.type==='unavailable-id'){peer.destroy();hostRoom()}else banner('Network problem: '+e.type)});
+  lobby=[{pid,name:$('#hostName').value.trim()||'Host',online:true,host:true}];
+  renderLobby();
+}
+function lobbyState(){return{phase:'lobby',players:lobby.map(l=>({name:l.name,online:l.online})),code:roomCode}}
+function broadcastLobby(){
+  const st=lobbyState();
+  lobby.forEach(l=>{if(l.conn&&l.conn.open)try{l.conn.send({t:'state',s:st,you:lobby.indexOf(l)})}catch(e){}});
+  renderLobby();
+}
+function onHostData(c,d){
+  if(d.t==='hello'){
+    if(H&&S&&S.phase!=='lobby'){
+      const k=H.pids.indexOf(d.pid);
+      if(k<0){c.send({t:'err',m:'This game has already started.'});return}
+      connByPid[d.pid]=c;c.pid=d.pid;S.players[k].online=true;publish();return;
+    }
+    let l=lobby.find(x=>x.pid===d.pid);
+    if(!l){if(lobby.length>=MAXP){c.send({t:'err',m:'The room is full (8 players).'});return}
+      l={pid:d.pid,name:'',online:true};lobby.push(l)}
+    l.name=String(d.name||'Player').slice(0,14);l.conn=c;l.online=true;c.pid=d.pid;connByPid[d.pid]=c;
+    broadcastLobby();
+  }else if(d.t==='act'&&H&&S&&S.phase!=='lobby'){
+    const k=H.pids.indexOf(c.pid);if(k>0)handle(k,d.a);
+  }
+}
+function onDrop(c){
+  if(H&&S&&S.phase!=='lobby'){
+    const k=H.pids.indexOf(c.pid);if(k>0){S.players[k].online=false;if(!checkEnd())publish()}
+  }else{lobby=lobby.filter(l=>l.conn!==c);broadcastLobby()}
+}
+function joinRoom(code){
+  if(typeof Peer==='undefined'){$('#joinErr').textContent='Could not load the online library. Check your internet and reload.';return}
+  const name=$('#guestName').value.trim();if(!name){$('#joinErr').textContent='Type a name first.';return}
+  $('#joinErr').textContent='Connecting…';$('#joinBtn').disabled=true;
+  MODE='guest';roomCode=code;
+  peer=new Peer();
+  const fail=m=>{$('#joinErr').textContent=m;$('#joinBtn').disabled=false};
+  const to=setTimeout(()=>fail('Could not reach the room. Check the link and that the host tab is open.'),12000);
+  peer.on('error',e=>{clearTimeout(to);fail(e.type==='peer-unavailable'?'Room not found. Check the link, and that the host still has the tab open.':'Network problem: '+e.type)});
+  peer.on('open',()=>{
+    hostConn=peer.connect('bidbuild-'+code,{reliable:true,serialization:'json'});
+    hostConn.on('open',()=>{clearTimeout(to);hostConn.send({t:'hello',name,pid});$('#joinForm').classList.add('hidden');$('#joinWait').classList.remove('hidden')});
+    hostConn.on('data',d=>{
+      if(d.t==='state'){me=d.you;S=d.s;tEnd=performance.now()+(S.tleft||0);render()}
+      else if(d.t==='err'){banner(d.m,6000);fail(d.m);location.hash='';$('#joinForm').classList.remove('hidden');$('#joinWait').classList.add('hidden')}
+    });
+    hostConn.on('close',()=>{banner('The host left the game.',8000)});
+  });
+}
+function onState(s,you){S=s;me=you;tEnd=performance.now()+(S.tleft||0);render()}
+
+/* ================= SCREENS / SETUP ================= */
+const SECS=['home','setup','join','game','end'];
+function showSec(id){SECS.forEach(x=>$('#'+x).classList.toggle('hidden',x!==id));window.scrollTo(0,0)}
+$('#poolCount').textContent=`🎲 ${totalPool.toLocaleString()}+ different items across ${TYPE_KEYS.length} build types, shuffled every game.`;
+
+function buildTypeGrid(){
+  $('#typeGrid').innerHTML=TYPE_KEYS.map(k=>`<button class="mode ${selType===k?'on':''}" data-t="${k}"><span>${TYPES[k].emoji}</span>${TYPES[k].label}</button>`).join('')+
+    `<button class="mode ${selType==='random'?'on':''}" data-t="random"><span>🎲</span>Surprise us</button>`;
+  $$('#typeGrid .mode').forEach(b=>b.onclick=()=>{selType=b.dataset.t;buildTypeGrid()});
+}
+buildTypeGrid();
+$$('#roundSeg button').forEach(b=>b.onclick=()=>{$$('#roundSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');selRounds=+b.dataset.v});
+$$('#cashSeg button').forEach(b=>b.onclick=()=>{$$('#cashSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');selCash=+b.dataset.v});
+$('#cAdd').onclick=()=>{
+  const name=$('#cName').value.trim();if(!name)return;
+  customItems.push({name,tier:$('#cTier').value,phrase:$('#cPhrase').value.trim()||name});
+  $('#cName').value='';$('#cPhrase').value='';renderCustom();
+};
+function renderCustom(){
+  $('#cList').innerHTML=customItems.map((c,i)=>`<span class="chip t-${c.tier}">✨ ${esc(c.name)} <a href="#" data-i="${i}" style="color:inherit;text-decoration:none">✕</a></span>`).join('');
+  $$('#cList a').forEach(a=>a.onclick=e=>{e.preventDefault();customItems.splice(+a.dataset.i,1);renderCustom()});
+}
+function physRows(names){
+  $('#physList').innerHTML=names.map((n,i)=>`<div class="prow"><input value="${esc(n)}" maxlength="14">${names.length>2?`<button data-rm="${i}">✕</button>`:''}</div>`).join('');
+  $$('#physList [data-rm]').forEach(b=>b.onclick=()=>{const cur=$$('#physList input').map(x=>x.value);cur.splice(+b.dataset.rm,1);physRows(cur)});
+  $('#addP').disabled=names.length>=MAXP;
+}
+$('#addP').onclick=()=>{const cur=$$('#physList input').map(x=>x.value);if(cur.length<MAXP){cur.push('Player '+(cur.length+1));physRows(cur)}};
+$('#goPhys').onclick=()=>{MODE='physical';showSec('setup');$('#setupTitle').textContent='Play on this laptop';$('#roomBox').classList.add('hidden');$('#physBox').classList.remove('hidden');physRows(['Medhansh','Friend']);$('#startBtn').textContent='Start the auction →'};
+$('#goOnline').onclick=()=>{MODE='host';showSec('setup');$('#setupTitle').textContent='Play online';$('#roomBox').classList.remove('hidden');$('#physBox').classList.add('hidden');hostRoom()};
+$('#hostName').oninput=()=>{if(lobby[0]){lobby[0].name=$('#hostName').value.trim()||'Host';broadcastLobby()}};
+$('#copyLink').onclick=()=>copyText($('#roomLink').value,$('#copyLink'));
+$('#backHome').onclick=()=>location.href=location.pathname;
+$('#quitBtn').onclick=()=>{if(confirm('Leave the game?'))location.href=location.pathname};
+$('#muteBtn').onclick=()=>{muted=!muted;$('#muteBtn').textContent=muted?'🔇':'🔊'};
+$('#startBtn').onclick=()=>{$('#setupErr').textContent='';startGame()};
+$('#joinBtn').onclick=()=>joinRoom(roomCode);
+function renderLobby(){
+  const h=lobby.map(l=>`<span class="chip on">${l.online?'🟢':'⚪'} ${esc(l.name)}${l.host?' (host)':''}</span>`).join('');
+  $('#lobbyList').innerHTML=h;
+}
+function renderGuestLobby(){$('#guestLobby').innerHTML=S.players.map((p,i)=>`<span class="chip on">${p.online?'🟢':'⚪'} ${esc(p.name)}${i===me?' (you)':''}</span>`).join('')}
+
+if(location.hash.startsWith('#join=')){
+  roomCode=location.hash.slice(6).toUpperCase();
+  showSec('join');$('#joinInfo').textContent='Room '+roomCode+' — pick a name and jump in.';
+  try{$('#guestName').value=localStorage.getItem('bb_name')||''}catch(e){}
+  $('#guestName').addEventListener('input',()=>{try{localStorage.setItem('bb_name',$('#guestName').value)}catch(e){}});
+}
+
+/* ================= RENDER ================= */
+let lastPhaseKey='',lastCtl='',prevBid=0,prevCash=[],animIv=null,lastScreen='';
+function render(){
+  if(!S)return;
+  if(S.phase==='lobby'){if(MODE==='guest'){showSec('join');$('#joinForm').classList.add('hidden');$('#joinWait').classList.remove('hidden');renderGuestLobby()}return}
+  if(S.phase==='end'){if(lastScreen!=='end'){lastScreen='end';renderEnd()}return}
+  if(lastScreen!=='game'){lastScreen='game';showSec('game');lastPhaseKey='';prevCash=[];}
+  renderTop();renderPlayers();renderBuild();renderStage();
+}
+function ap(){return S.cfg.mode==='physical'?S.turn:me}
+function renderTop(){
+  $('#roundTxt').textContent=`Item ${S.round} of ${S.max} · ${TYPES[S.build].emoji} ${TYPES[S.build].label}`;
+  $('#dots').innerHTML=Array.from({length:S.max},(_,i)=>`<b class="${i+1<S.round?'done':i+1===S.round?'cur':''}"></b>`).join('');
+}
+function renderPlayers(){
+  const A=S.phase==='auction'?ap():-1;
+  $('#plist').innerHTML=S.players.map((p,i)=>{
+    const turn=S.cfg.mode==='physical'&&S.phase==='auction'&&S.turn===i;
+    const lead=S.phase==='auction'&&S.bidder===i;
+    const vw=viewIdx()===i;
+    return `<div class="pc ${turn?'turn':''} ${p.passed&&S.phase==='auction'?'out':''} ${vw?'view':''} ${prevCash[i]!==undefined&&prevCash[i]!==p.cash?'pop':''}" data-i="${i}">
+      <div class="av">${esc(p.name[0].toUpperCase())}</div><div class="nm">${esc(p.name)}${i===me?' (you)':''}${p.online?'':' ⚪'}</div><div class="cs">$${p.cash}</div>
+      <small>${lead?'<span class="lead-dot">leading</span> · ':''}${p.items.length} item${p.items.length===1?'':'s'} · ${p.flaw.fixed?'✅ fixed':'❌ '+esc(p.flaw.emoji)} ${p.passed&&S.phase==='auction'?'· passed':''}</small></div>`}).join('');
+  prevCash=S.players.map(p=>p.cash);
+  $$('#plist .pc').forEach(el=>el.onclick=()=>{view=+el.dataset.i;renderPlayers();renderBuild()});
+}
+function viewIdx(){
+  if(view!==null&&S.players[view])return view;
+  if(S.cfg.mode==='physical')return S.phase==='auction'||S.phase==='wheel'?Math.max(S.turn,0):(S.winner?S.winner.idx:0);
+  return me??0;
+}
+const chipHTML=i=>`<span class="chip t-${i.tier} ${i.fresh?'new':''}">${i.emoji} ${esc(i.name)}${i.wasted?' (not needed)':''}</span>`;
+function renderBuild(){
+  const k=viewIdx(),p=S.players[k];if(!p)return;
+  const f=p.flaw;
+  $('#build').innerHTML=`<div class="pname">${esc(p.name)}${k===me?' <small>(you)</small>':''}</div>
+   <div class="cash">$${p.cash}</div><small>🌀 ${p.spins} spin${p.spins===1?'':'s'} left</small>
+   <div class="flaw ${f.fixed?'ok':''}">${f.emoji} ${esc(f.name)} — ${f.fixed?'<b>fixed ✓</b>':'<b>unfixed</b>'}</div>
+   <small>Their ${TYPES[S.build].label.toLowerCase()} so far</small>
+   <div class="chips">${p.items.length?p.items.map(chipHTML).join(''):'<small>Nothing yet…</small>'}</div>`;
+}
+function badge(it){return `<span class="badge ${it.tier}">${it.tier==='repair'?'Repair':it.tier}</span>`}
+function renderStage(){
+  const st=$('#stage');
+  const key=S.phase+'|'+S.itemSeq+'|'+(S.phase==='wheel'?S.wheelTo:'');
+  if(key!==lastPhaseKey){
+    lastPhaseKey=key;lastCtl='';clearInterval(animIv);
+    if(S.phase==='spinning'){
+      st.innerHTML=`<div class="item spinning"><div class="em" id="itemEm">🎁</div><h2>${S.spinAuto?'Nobody wanted it…':'Spinning for a new item…'}</h2><small>🌀</small></div>`;
+      const pool=TYPES[S.build].nouns.map(n=>n.e).concat(['🎁','🎁']);sfx.spin();
+      animIv=setInterval(()=>{const e=$('#itemEm');if(e)e.textContent=pick(pool)},90);return;
+    }
+    if(S.phase==='wheel'){
+      st.innerHTML=`<div class="item"><div class="em">${S.item.emoji}</div><h2>${esc(S.item.name)}</h2><p class="hint">Nobody wants it… the wheel picks who is stuck with it!</p><div class="sold" id="wheelName" style="font-size:36px">🎡</div></div>`;
+      sfx.spin();animIv=setInterval(()=>{const e=$('#wheelName');if(e)e.textContent=S.players[Math.floor(Math.random()*S.players.length)].name},90);return;
+    }
+    if(S.phase==='reveal'){buildReveal(st);return}
+    // auction
+    const it=S.item;
+    const junkHint=it.junk?`<p class="hint">💩 Nobody wants this. Take it and get a $${BOUNTY} bounty, or pass. If everybody passes, the wheel picks one of you with no bounty.</p>`:'';
+    const repHint=it.tier==='repair'?`<p class="hint">Fixes the <b>winner's</b> flaw. Useless if you already fixed yours.</p>`:'';
+    const boxHint=it.box?`<p class="hint">Contents hidden until someone wins it. ${it.tier==='legendary'?'Could be a legend…':it.tier==='rare'?'Probably good.':'Probably fine. Maybe a dud, maybe junk.'}</p>`:'';
+    st.innerHTML=`<div class="item rise"><div class="em">${it.emoji}</div><h2>${esc(it.name)}</h2>${badge(it)}${junkHint}${repHint}${boxHint}</div>
+      ${S.cfg.mode==='online'?'<div class="tbarwrap"><div class="tbar" id="tbar"><i id="tfill"></i></div><small id="tsec"></small></div>':''}<div id="ctl" style="width:100%"></div>`;
+  }
+  if(S.phase==='auction')renderControls();
+  if(S.phase==='reveal')updateReveal();
+}
+function renderControls(){
+  const c=$('#ctl');if(!c)return;
+  const i=ap(),p=S.players[i];if(!p){c.innerHTML='';return}
+  const it=S.item,lead=S.bidder!==null?S.players[S.bidder]:null,isLead=S.bidder===i;
+  const key=[S.bid,S.bidder,i,p.cash,p.spins,S.players.map(q=>q.passed?1:0).join('')].join('|');
+  if(key===lastCtl)return;lastCtl=key;
+  const phys=S.cfg.mode==='physical';
+  const who=phys?`<p class="turn" style="margin:10px 0"><strong>${esc(p.name)}</strong>, your turn · you have $${p.cash}</p>`
+    :`<p class="turn" style="margin:10px 0">You have <strong>$${p.cash}</strong>${isLead?' · you are leading 🔥':p.passed?' · you passed (bid to jump back in)':''}</p>`;
+  const passedList=S.players.filter(q=>q.passed&&q.online).map(q=>esc(q.name)).join(', ');
+  const hint=passedList?`<p class="hint" style="margin:10px auto 0">Passed: ${passedList}</p>`:'';
+  if(it.junk){
+    c.innerHTML=`${who}<div class="btns"><button class="primary" id="takeBtn">Take it, +$${BOUNTY} 💰</button><button id="passBtn">${phys?'Pass':'Not me'}</button><button id="spinBtn" ${p.spins>0?'':'disabled'}>🌀 Spin it away (${p.spins})</button></div>${hint}`;
+    $('#takeBtn').onclick=()=>act({t:'take'});
+  }else{
+    const b=n=>`<button class="primary" data-add="${n}" ${(isLead||S.bid+n>p.cash)?'disabled':''}>+$${n} → $${S.bid+n}</button>`;
+    c.innerHTML=`<div class="bidline"><div><small>Current bid</small><b id="bidv">$${S.bid}</b></div><div class="lead"><small>Leading</small><b>${lead?esc(lead.name):'—'}</b></div></div>${who}
+     <div class="btns">${b(1)}${b(2)}${b(5)}<button class="primary" id="allin" ${(isLead||p.cash<=S.bid)?'disabled':''}>All in $${p.cash}</button></div>
+     <div class="btns" style="margin-top:10px"><button id="passBtn" ${(isLead&&S.bid>0)?'disabled':''}>${phys?'Pass':'Not for me'}</button><button id="spinBtn" ${S.bid===0&&p.spins>0?'':'disabled'}>🌀 Spin for a new item (${p.spins})</button></div>${hint}
+     <p class="hint" style="margin:10px auto 0">${S.bid===0?'Nobody has bid. Open the bidding, pass, or spin. If everybody passes it re-spins free.':phys?'Raise it, or pass and let the others fight.':'Raise it before the timer runs out!'}</p>`;
+    $$('#ctl [data-add]').forEach(x=>x.onclick=()=>act({t:'bid',add:+x.dataset.add}));
+    $('#allin').onclick=()=>act({t:'bid',add:p.cash-S.bid});
+    if(S.bid!==prevBid){$('#bidv').classList.add('pop');sfx.bid()}
+  }
+  prevBid=S.bid;
+  $('#passBtn').onclick=()=>{sfx.pass();act({t:'pass'})};$('#spinBtn').onclick=()=>act({t:'spin'});
+}
+function buildReveal(st){
+  const w=S.winner,p=S.players[w.idx];
+  const paid=w.junkMode==='forced'?`<div class="sold"><span>${esc(p.name)}</span> is stuck with it 😬</div>`
+    :w.junkMode==='took'?`<div class="sold"><span>${esc(p.name)}</span> took it for +$${BOUNTY}</div>`
+    :`<div class="sold"><span>${esc(p.name)}</span> won it for $${w.price}</div>`;
+  const nextBtn=(S.cfg.mode==='physical'||me===0)?`<button class="primary" id="nextBtn">${S.round>=S.max?'See results & prompts →':'Next item →'}</button>`:'';
+  const fin=()=>{
+    const g=w.got;
+    const rep=g.tier==='repair'?(g.wasted?'<p class="hint">Flaw was already fixed, so that money was wasted.</p>':'<p class="hint">Flaw fixed! ✓</p>'):'';
+    st.innerHTML=`${paid}<div class="item rise"><div class="em">${g.emoji}</div><h2>${esc(g.name)}</h2>${badge(g)}${rep}</div>
+      ${S.cfg.mode==='online'?'<small id="rsec"></small>':''}${nextBtn}`;
+    const nb=$('#nextBtn');if(nb)nb.onclick=()=>act({t:'next'});
+    if(g.tier==='legendary')sfx.big();else sfx.sold();
+  };
+  if(w.boxTier){
+    st.innerHTML=`${paid}<div class="item shake"><div class="em">🎁</div><h2>Opening the box…</h2></div>`;sfx.spin();
+    animIv=setTimeout(fin,1200);
+  }else fin();
+}
+function updateReveal(){const r=$('#rsec');if(r&&S.cfg.mode==='online')r.textContent='Next item in '+Math.max(0,Math.ceil((tEnd-performance.now())/1000))+'s'}
+function frame(){
+  if(S&&S.phase==='auction'&&S.cfg.mode==='online'){
+    const left=Math.max(0,tEnd-performance.now()),f=$('#tfill');
+    if(f){f.style.width=Math.min(100,left/(S.dur||IDLE_MS)*100)+'%';$('#tbar').classList.toggle('hot',left<3000);$('#tsec').textContent=Math.ceil(left/1000)+'s'}
+  }
+  if(S&&S.phase==='reveal')updateReveal();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ================= END ================= */
+const hype=p=>p.items.reduce((a,i)=>a+(i.wasted?0:(PTS[i.tier]||0)),0)+(p.flaw.fixed?3:-3);
+function buildPrompt(p){
+  const T=TYPES[S.build],order={legendary:0,rare:1,common:2};
+  const junk=p.items.filter(i=>i.tier==='junk');
+  const feats=p.items.filter(i=>!i.wasted&&!['dud','repair','junk'].includes(i.tier)).sort((a,b)=>order[a.tier]-order[b.tier]);
+  const duds=p.items.filter(i=>i.tier==='dud');
+  let t=`Create one ultra-detailed, photorealistic image of ${p.name}'s dream ${T.thing}. It started as ${T.base}, and was upgraded with these features:\n`;
+  t+=feats.length?feats.map(i=>`- ${i.phrase}${i.tier==='legendary'?' (the showpiece, make it dramatic)':''}`).join('\n')+'\n':'- nothing fancy at all, it stayed basic\n';
+  if(duds.length)t+=`Also, for comedy, it includes: ${duds.map(i=>i.phrase).join('; ')}.\n`;
+  if(junk.length)t+=`It is also disgusting in places, and these must be clearly and funnily visible: ${junk.map(i=>i.phrase).join('; ')}.\n`;
+  t+=p.flaw.fixed?`The ${p.flaw.name.toLowerCase()} was repaired, so it has ${p.flaw.fixPhrase}.\n`:`One flaw was never fixed and must be clearly visible: ${p.flaw.bad}.\n`;
+  if(S.cfg.twist)t+=`Creative twist for the whole scene: ${S.cfg.twist}.\n`;
+  return t+`${T.shot} Cinematic golden-hour lighting, rich detail, 4K, wide 3:2 composition.`;
+}
+function renderEnd(){
+  const T=TYPES[S.build];
+  const ranked=S.players.map((p,i)=>({p,i,s:hype(p)})).sort((a,b)=>b.s-a.s);
+  const top=ranked[0].s;
+  $('#end').innerHTML=`<h1 class="rise">${T.emoji} Final builds</h1>
+   <p class="muted rise">Hype score is just for fun. The image decides the real winner. ${ranked.filter(r=>r.s===top).map(r=>'<b>'+esc(r.p.name)+'</b>').join(' & ')} lead${ranked.filter(r=>r.s===top).length>1?'':'s'}.</p>
+   <div class="endgrid">${ranked.map((r,n)=>`
+    <section class="glass ecard ${r.s===top?'win':''} rise" style="animation-delay:${n*.1}s">
+      <h2>${esc(r.p.name)}${r.i===me?' (you)':''} ${r.s===top?'👑':''}</h2>
+      <small>Hype ${r.s} · $${r.p.cash} left · ${r.p.flaw.emoji} ${esc(r.p.flaw.name)}: ${r.p.flaw.fixed?'fixed ✓':'still broken'}</small>
+      <div class="chips">${r.p.items.length?r.p.items.map(x=>chipHTML({...x,fresh:false})).join(''):'<small>Bought nothing!</small>'}</div>
+      <pre id="pr${r.i}">${esc(buildPrompt(r.p))}</pre>
+      <div class="endbtns"><button class="primary" data-copy="${r.i}">Copy prompt</button><a class="btn" href="https://chatgpt.com" target="_blank" rel="noopener">Open ChatGPT ↗</a></div>
+    </section>`).join('')}</div>
+   <div class="endbtns" style="margin-top:22px"><button id="again">Back to start</button></div>`;
+  showSec('end');
+  $$('[data-copy]').forEach(b=>b.onclick=()=>copyText($('#pr'+b.dataset.copy).textContent,b));
+  $('#again').onclick=()=>location.href=location.pathname;
+  sfx.big();
+}
+function copyText(t,btn){
+  const ok=()=>{const o=btn.textContent;btn.textContent='Copied ✓';setTimeout(()=>btn.textContent=o,1500)};
+  const fb=()=>{const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');ok()}catch(e){}ta.remove()};
+  if(navigator.clipboard&&window.isSecureContext)navigator.clipboard.writeText(t).then(ok,fb);else fb();
+}
+</script>
+</body>
+</html>
